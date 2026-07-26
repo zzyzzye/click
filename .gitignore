@@ -1,0 +1,60 @@
+# CMake / Ninja build output
+/build/
+/build-*/
+/cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+DartConfiguration.tcl
+Makefile
+build.ninja
+.ninja_deps
+.ninja_log
+compile_commands.json
+install_manifest.txt
+
+# CMake user-local presets (CMakePresets.json remains tracked)
+CMakeUserPresets.json
+
+# Qt generated files and IDE-local state
+*_autogen/
+*.pro.user
+*.pro.user.*
+*.qmlproject.user
+*.qmlproject.user.*
+*.user
+*.user.*
+.qtc_clangd/
+
+# Compiled artifacts
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.dSYM/
+
+# Test and coverage output
+/Testing/
+*.gcda
+*.gcno
+*.gcov
+coverage/
+
+# macOS metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor-local state
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs and temporary files
+*.log
+*.tmp
