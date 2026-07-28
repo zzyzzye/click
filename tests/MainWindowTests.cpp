@@ -1,5 +1,8 @@
+#include <QCheckBox>
+#include <QComboBox>
 #include <QLabel>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QTest>
 #include <QUuid>
 
@@ -14,7 +17,9 @@
 
 class MainWindowFakeClickBackend final : public ClickBackend {
  public:
-  bool click(const ClickProfile&) override {
+  bool click(const ClickProfile& profile) override {
+    lastProfile = profile;
+    ++clickCount;
     return true;
   }
 
@@ -27,6 +32,9 @@ class MainWindowFakeClickBackend final : public ClickBackend {
   }
 
   void requestAccessibilityPermission() override {}
+
+  ClickProfile lastProfile;
+  int clickCount = 0;
 };
 
 class MainWindowFakeHotkeyService final : public HotkeyService {
@@ -50,6 +58,9 @@ class MainWindowTests : public QObject {
  private slots:
   void windowsFactoriesCreateNativeServices();
   void availableInputHidesPermissionRequest();
+  void loadedProfileRoundTripsThroughStart();
+  void modeControlsFollowProfileChoices();
+  void captureHotkeyUsesCurrentCursor();
 };
 
 void MainWindowTests::windowsFactoriesCreateNativeServices() {
@@ -76,6 +87,108 @@ void MainWindowTests::availableInputHidesPermissionRequest() {
   QVERIFY(button);
   QCOMPARE(label->text(), QString("输入控制权限：可用"));
   QVERIFY(button->isHidden());
+}
+
+void MainWindowTests::loadedProfileRoundTripsThroughStart() {
+  const QString appName =
+      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+
+  ClickProfile expected;
+  expected.name = "Windows profile";
+  expected.intervalMs = 600000;
+  expected.button = ClickButton::Right;
+  expected.targetMode = TargetMode::FixedPoint;
+  expected.fixedPoint = QPoint(640, 480);
+  expected.repeatMode = RepeatMode::Finite;
+  expected.repeatCount = 8;
+  expected.jitterRadius = 7;
+  expected.countdownSeconds = 0;
+  expected.alwaysOnTop = true;
+  expected.hotkeys.startStop = "Ctrl+F6";
+  expected.hotkeys.capturePoint = "Ctrl+F7";
+  expected.hotkeys.emergencyStop = "Ctrl+F8";
+  repository->saveLastUsedProfile(expected);
+
+  auto backend = std::make_unique<MainWindowFakeClickBackend>();
+  auto* observed = backend.get();
+  MainWindow window(std::move(backend),
+                    std::make_unique<MainWindowFakeHotkeyService>(),
+                    std::move(repository));
+
+  auto* startButton = window.findChild<QPushButton*>("startStopButton");
+  QVERIFY(startButton);
+  startButton->click();
+
+  QCOMPARE(observed->clickCount, 1);
+  const ClickProfile& actual = observed->lastProfile;
+  QCOMPARE(actual.name, expected.name);
+  QCOMPARE(actual.intervalMs, expected.intervalMs);
+  QCOMPARE(actual.button, expected.button);
+  QCOMPARE(actual.targetMode, expected.targetMode);
+  QCOMPARE(actual.fixedPoint, expected.fixedPoint);
+  QCOMPARE(actual.repeatMode, expected.repeatMode);
+  QCOMPARE(actual.repeatCount, expected.repeatCount);
+  QCOMPARE(actual.jitterRadius, expected.jitterRadius);
+  QCOMPARE(actual.alwaysOnTop, expected.alwaysOnTop);
+  QCOMPARE(actual.hotkeys.startStop, expected.hotkeys.startStop);
+  QCOMPARE(actual.hotkeys.capturePoint, expected.hotkeys.capturePoint);
+  QCOMPARE(actual.hotkeys.emergencyStop, expected.hotkeys.emergencyStop);
+}
+
+void MainWindowTests::modeControlsFollowProfileChoices() {
+  const QString appName =
+      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::make_unique<MainWindowFakeHotkeyService>(),
+                    std::move(repository));
+
+  auto* targetMode = window.findChild<QComboBox*>("targetModeCombo");
+  auto* fixedX = window.findChild<QSpinBox*>("fixedXSpin");
+  auto* repeatMode = window.findChild<QComboBox*>("repeatModeCombo");
+  auto* repeatCount = window.findChild<QSpinBox*>("repeatCountSpin");
+  QVERIFY(targetMode);
+  QVERIFY(fixedX);
+  QVERIFY(repeatMode);
+  QVERIFY(repeatCount);
+
+  targetMode->setCurrentIndex(
+      targetMode->findData(static_cast<int>(TargetMode::FixedPoint)));
+  QVERIFY(fixedX->isEnabled());
+  targetMode->setCurrentIndex(
+      targetMode->findData(static_cast<int>(TargetMode::FollowCursor)));
+  QVERIFY(!fixedX->isEnabled());
+
+  repeatMode->setCurrentIndex(
+      repeatMode->findData(static_cast<int>(RepeatMode::Finite)));
+  QVERIFY(repeatCount->isEnabled());
+  repeatMode->setCurrentIndex(
+      repeatMode->findData(static_cast<int>(RepeatMode::Infinite)));
+  QVERIFY(!repeatCount->isEnabled());
+}
+
+void MainWindowTests::captureHotkeyUsesCurrentCursor() {
+  const QString appName =
+      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  auto hotkeys = std::make_unique<MainWindowFakeHotkeyService>();
+  auto* hotkeySignals = hotkeys.get();
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::move(hotkeys), std::move(repository));
+
+  hotkeySignals->capturePointPressed();
+
+  auto* targetMode = window.findChild<QComboBox*>("targetModeCombo");
+  auto* fixedX = window.findChild<QSpinBox*>("fixedXSpin");
+  auto* fixedY = window.findChild<QSpinBox*>("fixedYSpin");
+  QVERIFY(targetMode);
+  QVERIFY(fixedX);
+  QVERIFY(fixedY);
+  QCOMPARE(targetMode->currentData().toInt(),
+           static_cast<int>(TargetMode::FixedPoint));
+  QCOMPARE(fixedX->value(), 25);
+  QCOMPARE(fixedY->value(), 35);
 }
 
 QTEST_MAIN(MainWindowTests)

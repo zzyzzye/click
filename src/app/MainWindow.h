@@ -62,6 +62,7 @@ class MainWindow : public QMainWindow {
   ClickController controller_;
 
   QWidget* configPanel_ = nullptr;
+  QGroupBox* profileGroup_ = nullptr;
   QGroupBox* clickGroup_ = nullptr;
   QGroupBox* hotkeyGroup_ = nullptr;
   QLabel* permissionLabel_ = nullptr;
@@ -71,7 +72,29 @@ class MainWindow : public QMainWindow {
   QLabel* countdownLabel_ = nullptr;
   QLabel* remainingLabel_ = nullptr;
 
+  QListWidget* profileList_ = nullptr;
+  QPushButton* newPresetButton_ = nullptr;
+  QPushButton* savePresetButton_ = nullptr;
+  QPushButton* renamePresetButton_ = nullptr;
+  QPushButton* deletePresetButton_ = nullptr;
+  QPushButton* loadPresetButton_ = nullptr;
+
   QSpinBox* intervalSpin_ = nullptr;
+  QComboBox* buttonCombo_ = nullptr;
+  QComboBox* targetModeCombo_ = nullptr;
+  QSpinBox* fixedXSpin_ = nullptr;
+  QSpinBox* fixedYSpin_ = nullptr;
+  QPushButton* capturePointButton_ = nullptr;
+  QSpinBox* jitterSpin_ = nullptr;
+  QComboBox* repeatModeCombo_ = nullptr;
+  QSpinBox* repeatCountSpin_ = nullptr;
+  QSpinBox* countdownSpin_ = nullptr;
+  QCheckBox* alwaysOnTopCheck_ = nullptr;
+
   QKeySequenceEdit* startStopHotkeyEdit_ = nullptr;
+  QKeySequenceEdit* captureHotkeyEdit_ = nullptr;
+  QKeySequenceEdit* emergencyHotkeyEdit_ = nullptr;
   QPushButton* startStopButton_ = nullptr;
+
+  QString currentProfileName_ = "Default";
 };
