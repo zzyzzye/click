@@ -76,10 +76,12 @@ elseif(WIN32)
   list(APPEND PLATFORM_SOURCES
     src/platform/windows/WindowsInputApi.cpp
     src/platform/windows/WindowsClickBackend.cpp
+    src/platform/windows/WindowsHotkeyMapping.cpp
   )
   list(APPEND APP_HEADERS
     src/platform/windows/WindowsInputApi.h
     src/platform/windows/WindowsClickBackend.h
+    src/platform/windows/WindowsHotkeyMapping.h
   )
 else()
   message(FATAL_ERROR "QtClicker supports only macOS and Windows.")
@@ -137,6 +139,24 @@ if(WIN32)
   )
   add_test(NAME WindowsClickBackend COMMAND QtClickerWindowsTests)
   set_tests_properties(WindowsClickBackend PROPERTIES
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+
+  add_executable(QtClickerWindowsHotkeyTests
+    tests/WindowsHotkeyTests.cpp
+    src/platform/windows/WindowsHotkeyMapping.cpp
+    src/platform/windows/WindowsHotkeyMapping.h
+  )
+  target_include_directories(QtClickerWindowsHotkeyTests PRIVATE src)
+  target_link_libraries(QtClickerWindowsHotkeyTests PRIVATE
+    QtClickerCore
+    Qt6::Test
+    Qt6::Widgets
+    user32
+  )
+  add_test(NAME WindowsHotkeyMapping COMMAND QtClickerWindowsHotkeyTests)
+  set_tests_properties(WindowsHotkeyMapping PROPERTIES
     ENVIRONMENT_MODIFICATION
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
   )
