@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(QtClicker VERSION 0.1.0 LANGUAGES CXX)
+project(ClickFlow VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,6 +29,13 @@ endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
 
+set(CLICKFLOW_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+configure_file(
+  src/app/ClickFlowVersion.h.in
+  "${CLICKFLOW_GENERATED_DIR}/ClickFlowVersion.h"
+  @ONLY
+)
+
 set(CORE_SOURCES
   src/core/ClickController.cpp
   src/core/ClickTypes.cpp
@@ -54,10 +61,12 @@ target_link_libraries(QtClickerCore PUBLIC Qt6::Core)
 set(APP_SOURCES
   src/app/main.cpp
   src/app/MainWindow.cpp
+  src/app/AppIdentity.cpp
 )
 
 set(APP_HEADERS
   src/app/MainWindow.h
+  src/app/AppIdentity.h
   src/platform/PlatformServices.h
 )
 
@@ -73,6 +82,12 @@ if(APPLE)
     src/platform/macos/MacOSHotkeyService.h
   )
 elseif(WIN32)
+  configure_file(
+    src/app/ClickFlow.rc.in
+    "${CLICKFLOW_GENERATED_DIR}/ClickFlow.rc"
+    @ONLY
+  )
+  list(APPEND APP_SOURCES "${CLICKFLOW_GENERATED_DIR}/ClickFlow.rc")
   list(APPEND PLATFORM_SOURCES
     src/platform/windows/WindowsInputApi.cpp
     src/platform/windows/WindowsClickBackend.cpp
@@ -100,8 +115,9 @@ add_executable(QtClicker MACOSX_BUNDLE
   ${CORE_HEADERS}
 )
 
-target_include_directories(QtClicker PRIVATE src)
+target_include_directories(QtClicker PRIVATE src "${CLICKFLOW_GENERATED_DIR}")
 target_link_libraries(QtClicker PRIVATE QtClickerCore Qt6::Widgets)
+set_target_properties(QtClicker PROPERTIES OUTPUT_NAME ClickFlow)
 
 if(APPLE)
   target_link_libraries(QtClicker PRIVATE
@@ -122,6 +138,25 @@ target_link_libraries(QtClickerTests PRIVATE QtClickerCore Qt6::Test Qt6::Widget
 add_test(NAME QtClickerTests COMMAND QtClickerTests)
 if(WIN32)
   set_tests_properties(QtClickerTests PROPERTIES
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+endif()
+
+add_executable(ClickFlowIdentityTests
+  tests/AppIdentityTests.cpp
+  src/app/AppIdentity.cpp
+  src/app/AppIdentity.h
+)
+target_include_directories(ClickFlowIdentityTests PRIVATE
+  src
+  "${CLICKFLOW_GENERATED_DIR}"
+)
+target_link_libraries(ClickFlowIdentityTests PRIVATE Qt6::Test Qt6::Widgets)
+add_test(NAME AppIdentity COMMAND ClickFlowIdentityTests)
+if(WIN32)
+  set_tests_properties(AppIdentity PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     ENVIRONMENT_MODIFICATION
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
   )
