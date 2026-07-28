@@ -11,7 +11,7 @@ ActionBar::ActionBar(QWidget* parent) : QFrame(parent) {
   summaryLabel_ = new QLabel(this);
   hintLabel_ = new QLabel("F8 紧急停止", this);
   startStopButton_ = new QPushButton("开始连点", this);
-  startStopButton_->setObjectName("primaryAction");
+  startStopButton_->setObjectName("startStopButton");
   startStopButton_->setMinimumWidth(150);
   layout->addWidget(summaryLabel_, 1);
   layout->addWidget(hintLabel_);

@@ -198,6 +198,8 @@ set(SHELL_PAGE_SOURCES
   src/app/pages/PresetsAboutPage.h
 )
 
+target_sources(QtClicker PRIVATE ${SHELL_WIDGET_SOURCES} ${SHELL_PAGE_SOURCES})
+
 add_executable(ClickFlowPageTests
   tests/ClickFlowPageTests.cpp
   ${SHELL_PAGE_SOURCES}
@@ -260,6 +262,8 @@ if(WIN32)
     tests/MainWindowTests.cpp
     src/app/MainWindow.cpp
     src/app/MainWindow.h
+    ${SHELL_WIDGET_SOURCES}
+    ${SHELL_PAGE_SOURCES}
     src/platform/windows/WindowsInputApi.cpp
     src/platform/windows/WindowsClickBackend.cpp
     src/platform/windows/WindowsHotkeyMapping.cpp

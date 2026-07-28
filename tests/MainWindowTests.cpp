@@ -3,6 +3,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStackedWidget>
 #include <QTest>
 #include <QUuid>
 
@@ -14,6 +15,9 @@
 #include "platform/PlatformServices.h"
 #include "platform/windows/WindowsClickBackend.h"
 #include "platform/windows/WindowsHotkeyService.h"
+#include "app/widgets/ActionBar.h"
+#include "app/widgets/NavigationSidebar.h"
+#include "app/widgets/StatusStrip.h"
 
 class MainWindowFakeClickBackend final : public ClickBackend {
  public:
@@ -61,6 +65,7 @@ class MainWindowTests : public QObject {
   void loadedProfileRoundTripsThroughStart();
   void modeControlsFollowProfileChoices();
   void captureHotkeyUsesCurrentCursor();
+  void usesPersistentClickFlowShell();
 };
 
 void MainWindowTests::windowsFactoriesCreateNativeServices() {
@@ -189,6 +194,28 @@ void MainWindowTests::captureHotkeyUsesCurrentCursor() {
            static_cast<int>(TargetMode::FixedPoint));
   QCOMPARE(fixedX->value(), 25);
   QCOMPARE(fixedY->value(), 35);
+}
+
+void MainWindowTests::usesPersistentClickFlowShell() {
+  const QString appName =
+      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::make_unique<MainWindowFakeHotkeyService>(),
+                    std::move(repository));
+
+  QCOMPARE(window.windowTitle(), QString("ClickFlow"));
+  QCOMPARE(window.minimumSize(), QSize(820, 560));
+  auto* sidebar = window.findChild<NavigationSidebar*>();
+  auto* status = window.findChild<StatusStrip*>();
+  auto* actions = window.findChild<ActionBar*>();
+  auto* pages = window.findChild<QStackedWidget*>("contentPages");
+  QVERIFY(sidebar);
+  QVERIFY(status);
+  QVERIFY(actions);
+  QVERIFY(pages);
+  QCOMPARE(sidebar->pageCount(), 3);
+  QCOMPARE(pages->count(), 3);
 }
 
 QTEST_MAIN(MainWindowTests)

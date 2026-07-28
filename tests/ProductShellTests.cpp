@@ -32,7 +32,7 @@ void ProductShellTests::persistentRegionsExposeState() {
   status.setPermissionState(true);
   status.setStatus("运行中");
   status.setProgress("剩余 8 次");
-  QCOMPARE(status.permissionText(), QString("输入控制可用"));
+  QCOMPARE(status.permissionText(), QString("输入控制权限：可用"));
   QCOMPARE(status.statusText(), QString("运行中"));
   QCOMPARE(status.progressText(), QString("剩余 8 次"));
 

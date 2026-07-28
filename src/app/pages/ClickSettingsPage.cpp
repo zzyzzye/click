@@ -44,13 +44,16 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   button_->addItem("左键", int(ClickButton::Left));
   button_->addItem("右键", int(ClickButton::Right));
   targetMode_ = new QComboBox(this);
+  targetMode_->setObjectName("targetModeCombo");
   targetMode_->addItem("跟随鼠标", int(TargetMode::FollowCursor));
   targetMode_->addItem("固定坐标", int(TargetMode::FixedPoint));
   auto* coordinates = new QWidget(this);
   auto* coordinateLayout = new QHBoxLayout(coordinates);
   coordinateLayout->setContentsMargins(0, 0, 0, 0);
   fixedX_ = new QSpinBox(this); fixedX_->setRange(-100000, 100000); fixedX_->setPrefix("X ");
+  fixedX_->setObjectName("fixedXSpin");
   fixedY_ = new QSpinBox(this); fixedY_->setRange(-100000, 100000); fixedY_->setPrefix("Y ");
+  fixedY_->setObjectName("fixedYSpin");
   capture_ = new QPushButton("捕获当前位置", this);
   coordinateLayout->addWidget(fixedX_); coordinateLayout->addWidget(fixedY_);
   coordinateLayout->addWidget(capture_);
@@ -63,9 +66,11 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   QGridLayout* behavior = nullptr;
   auto* behaviorCard = card("运行行为", this, &behavior);
   repeatMode_ = new QComboBox(this);
+  repeatMode_->setObjectName("repeatModeCombo");
   repeatMode_->addItem("无限", int(RepeatMode::Infinite));
   repeatMode_->addItem("有限次数", int(RepeatMode::Finite));
   repeatCount_ = new QSpinBox(this); repeatCount_->setRange(1, 100000000);
+  repeatCount_->setObjectName("repeatCountSpin");
   jitter_ = new QSpinBox(this); jitter_->setRange(0, 1000); jitter_->setSuffix(" 像素");
   countdown_ = new QSpinBox(this); countdown_->setRange(0, 3600); countdown_->setSuffix(" 秒");
   alwaysOnTop_ = new QCheckBox("保持窗口置顶", this);
