@@ -162,6 +162,33 @@ if(WIN32)
   )
 endif()
 
+set(SHELL_WIDGET_SOURCES
+  src/app/widgets/NavigationSidebar.cpp
+  src/app/widgets/NavigationSidebar.h
+  src/app/widgets/StatusStrip.cpp
+  src/app/widgets/StatusStrip.h
+  src/app/widgets/ActionBar.cpp
+  src/app/widgets/ActionBar.h
+)
+
+add_executable(ClickFlowProductShellTests
+  tests/ProductShellTests.cpp
+  ${SHELL_WIDGET_SOURCES}
+)
+target_include_directories(ClickFlowProductShellTests PRIVATE
+  src
+  "${CLICKFLOW_GENERATED_DIR}"
+)
+target_link_libraries(ClickFlowProductShellTests PRIVATE Qt6::Test Qt6::Widgets)
+add_test(NAME ProductShell COMMAND ClickFlowProductShellTests)
+if(WIN32)
+  set_tests_properties(ProductShell PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+endif()
+
 if(WIN32)
   add_executable(QtClickerWindowsTests
     tests/WindowsClickBackendTests.cpp
