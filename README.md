@@ -76,7 +76,8 @@ cmake --build build/windows-vs2026-debug --config Release --parallel
 ```
 
 脚本会复制应用并运行 `windeployqt`，产物无需把 Qt 永久加入系统
-`PATH`。
+`PATH`。若旧版 `windeployqt` 无法识别较新的 Visual Studio，脚本会通过
+Visual Studio Installer 定位并补齐 x64 VC Runtime DLL。
 
 ## macOS 构建
 
