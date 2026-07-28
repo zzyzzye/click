@@ -113,7 +113,9 @@ void MainWindow::buildUi() {
     #navigationSidebar { background: #e9ecf1; border-right: 1px solid #d4d9e1; }
     #productName { font-size: 22px; font-weight: 700; color: #14213d; }
     #productVersion { color: #6b7280; }
-    #sidebarNavigation { background: transparent; outline: none; }
+    #sidebarNavigation {
+      background: transparent; border: none; outline: none;
+    }
     #sidebarNavigation::item { border-radius: 8px; padding-left: 12px; }
     #sidebarNavigation::item:selected { background: #2563eb; color: white; }
     #settingsCard, #statusStrip, #actionBar {
@@ -125,9 +127,54 @@ void MainWindow::buildUi() {
       padding: 10px 22px; font-weight: 650;
     }
     QPushButton#startStopButton[running="true"] { background: #dc2626; }
-    QComboBox, QSpinBox, QKeySequenceEdit, QListWidget {
-      min-height: 28px; border: 1px solid #cfd5dd; border-radius: 6px;
-      background: white; padding: 2px 8px;
+    QComboBox, QSpinBox, QKeySequenceEdit {
+      min-height: 30px; border: 1px solid #cfd5dd; border-radius: 7px;
+      background: white; padding: 2px 34px 2px 10px;
+    }
+    QComboBox:hover, QSpinBox:hover, QKeySequenceEdit:hover {
+      border-color: #9eabc0;
+    }
+    QComboBox:focus, QSpinBox:focus, QKeySequenceEdit:focus {
+      border: 1px solid #2563eb;
+    }
+    QComboBox::drop-down {
+      subcontrol-origin: padding; subcontrol-position: top right;
+      width: 30px; margin: 3px; border: none; border-radius: 5px;
+    }
+    QComboBox::drop-down:hover { background: #edf3ff; }
+    QComboBox::down-arrow {
+      image: url(:/clickflow/icons/chevron-down.svg);
+      width: 12px; height: 8px;
+    }
+    QSpinBox { padding-right: 32px; }
+    QSpinBox::up-button, QSpinBox::down-button {
+      subcontrol-origin: border; width: 28px;
+      border: none; background: transparent;
+    }
+    QSpinBox::up-button {
+      subcontrol-position: top right; margin: 3px 3px 0 0;
+      border-top-left-radius: 5px; border-top-right-radius: 5px;
+    }
+    QSpinBox::down-button {
+      subcontrol-position: bottom right; margin: 0 3px 3px 0;
+      border-bottom-left-radius: 5px; border-bottom-right-radius: 5px;
+    }
+    QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+      background: #edf3ff;
+    }
+    QSpinBox::up-button:pressed, QSpinBox::down-button:pressed {
+      background: #dce8ff;
+    }
+    QSpinBox::up-arrow {
+      image: url(:/clickflow/icons/chevron-up.svg);
+      width: 10px; height: 6px;
+    }
+    QSpinBox::down-arrow {
+      image: url(:/clickflow/icons/chevron-down.svg);
+      width: 10px; height: 6px;
+    }
+    QComboBox:disabled, QSpinBox:disabled, QKeySequenceEdit:disabled {
+      color: #8a94a3; background: #f5f6f8;
     }
   )");
 }

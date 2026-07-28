@@ -68,6 +68,7 @@ class MainWindowTests : public QObject {
   void captureHotkeyUsesCurrentCursor();
   void usesPersistentClickFlowShell();
   void controlChevronResourcesAreAvailable();
+  void usesClickFlowControlChrome();
 };
 
 void MainWindowTests::windowsFactoriesCreateNativeServices() {
@@ -223,6 +224,25 @@ void MainWindowTests::usesPersistentClickFlowShell() {
 void MainWindowTests::controlChevronResourcesAreAvailable() {
   QVERIFY(QFile::exists(":/clickflow/icons/chevron-down.svg"));
   QVERIFY(QFile::exists(":/clickflow/icons/chevron-up.svg"));
+}
+
+void MainWindowTests::usesClickFlowControlChrome() {
+  const QString appName =
+      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::make_unique<MainWindowFakeHotkeyService>(),
+                    std::move(repository));
+
+  const QString style = window.styleSheet();
+  const QString compactStyle = style.simplified();
+  QVERIFY(style.contains("QComboBox::down-arrow"));
+  QVERIFY(style.contains("QSpinBox::up-button"));
+  QVERIFY(style.contains("QSpinBox::down-button"));
+  QVERIFY(style.contains(":/clickflow/icons/chevron-down.svg"));
+  QVERIFY(style.contains(":/clickflow/icons/chevron-up.svg"));
+  QVERIFY(compactStyle.contains(
+      "#sidebarNavigation { background: transparent; border: none;"));
 }
 
 QTEST_MAIN(MainWindowTests)
