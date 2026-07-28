@@ -28,7 +28,7 @@
       "architecture": "x64",
       "binaryDir": "${sourceDir}/build/windows-msvc-debug",
       "cacheVariables": {
-        "CMAKE_CONFIGURATION_TYPES": "Debug"
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
       },
       "condition": {
         "type": "equals",
@@ -43,7 +43,7 @@
       "architecture": "x64",
       "binaryDir": "${sourceDir}/build/windows-vs2026-debug",
       "cacheVariables": {
-        "CMAKE_CONFIGURATION_TYPES": "Debug"
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release"
       },
       "condition": {
         "type": "equals",

@@ -1,6 +1,7 @@
 # CMake / Ninja build output
 /build/
 /build-*/
+/dist/
 /cmake-build-*/
 CMakeFiles/
 CMakeCache.txt
