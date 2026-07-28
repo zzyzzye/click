@@ -10,15 +10,24 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include <utility>
+
 #include "core/ClickBackend.h"
 #include "core/HotkeyService.h"
 #include "core/ClickTypes.h"
 
 MainWindow::MainWindow(QWidget* parent)
+    : MainWindow(createClickBackend(), createHotkeyService(),
+                 std::make_unique<SettingsRepository>(), parent) {}
+
+MainWindow::MainWindow(std::unique_ptr<ClickBackend> backend,
+                       std::unique_ptr<HotkeyService> hotkeyService,
+                       std::unique_ptr<SettingsRepository> settingsRepository,
+                       QWidget* parent)
     : QMainWindow(parent),
-      backend_(createClickBackend()),
-      hotkeyService_(createHotkeyService()),
-      settingsRepository_(),
+      backend_(std::move(backend)),
+      hotkeyService_(std::move(hotkeyService)),
+      settingsRepository_(std::move(settingsRepository)),
       controller_(backend_.get(), this) {
   buildUi();
 
@@ -47,7 +56,7 @@ MainWindow::MainWindow(QWidget* parent)
           });
 
   ClickProfile profile;
-  if (const auto saved = settingsRepository_.loadLastUsedProfile(); saved.has_value()) {
+  if (const auto saved = settingsRepository_->loadLastUsedProfile(); saved.has_value()) {
     profile = *saved;
   }
   applyProfileToUi(profile);
@@ -77,7 +86,7 @@ void MainWindow::handleStartStop() {
     return;
   }
 
-  settingsRepository_.saveLastUsedProfile(profile);
+  settingsRepository_->saveLastUsedProfile(profile);
   controller_.start(profile);
 }
 
@@ -109,8 +118,10 @@ void MainWindow::handleProfileSelectionChanged() {
 
 void MainWindow::handlePermissionRequest() {
   backend_->requestAccessibilityPermission();
+#if defined(Q_OS_MACOS)
   QDesktopServices::openUrl(
       QUrl("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"));
+#endif
   updatePermissionBanner();
 }
 
@@ -154,7 +165,9 @@ void MainWindow::buildUi() {
   auto* headerBox = new QGroupBox("运行状态", central);
   auto* headerLayout = new QHBoxLayout(headerBox);
   permissionLabel_ = new QLabel(headerBox);
+  permissionLabel_->setObjectName("permissionLabel");
   permissionButton_ = new QPushButton("打开辅助功能设置", headerBox);
+  permissionButton_->setObjectName("permissionButton");
   statusLabel_ = new QLabel("空闲", headerBox);
   countdownLabel_ = new QLabel("模式：按一次开始，再按一次停止", headerBox);
   remainingLabel_ = new QLabel("热键：F6", headerBox);
@@ -233,8 +246,8 @@ void MainWindow::updateRunningUi(bool running) {
 
 void MainWindow::updatePermissionBanner() {
   const bool allowed = backend_->hasAccessibilityPermission();
-  permissionLabel_->setText(allowed ? "辅助功能权限：已授予"
-                                    : "辅助功能权限：未授予");
+  permissionLabel_->setText(allowed ? "输入控制权限：可用"
+                                    : "输入控制权限：需要授权");
   permissionButton_->setVisible(!allowed);
 }
 

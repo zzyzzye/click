@@ -79,6 +79,7 @@ elseif(WIN32)
     src/platform/windows/WindowsHotkeyMapping.cpp
     src/platform/windows/WindowsHotkeyApi.cpp
     src/platform/windows/WindowsHotkeyService.cpp
+    src/platform/windows/PlatformServicesWindows.cpp
   )
   list(APPEND APP_HEADERS
     src/platform/windows/WindowsInputApi.h
@@ -165,6 +166,32 @@ if(WIN32)
   )
   add_test(NAME WindowsHotkeyMapping COMMAND QtClickerWindowsHotkeyTests)
   set_tests_properties(WindowsHotkeyMapping PROPERTIES
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+
+  add_executable(QtClickerMainWindowTests
+    tests/MainWindowTests.cpp
+    src/app/MainWindow.cpp
+    src/app/MainWindow.h
+    src/platform/windows/WindowsInputApi.cpp
+    src/platform/windows/WindowsClickBackend.cpp
+    src/platform/windows/WindowsHotkeyMapping.cpp
+    src/platform/windows/WindowsHotkeyApi.cpp
+    src/platform/windows/WindowsHotkeyService.cpp
+    src/platform/windows/WindowsHotkeyService.h
+    src/platform/windows/PlatformServicesWindows.cpp
+  )
+  target_include_directories(QtClickerMainWindowTests PRIVATE src)
+  target_link_libraries(QtClickerMainWindowTests PRIVATE
+    QtClickerCore
+    Qt6::Test
+    Qt6::Widgets
+    user32
+  )
+  add_test(NAME MainWindow COMMAND QtClickerMainWindowTests)
+  set_tests_properties(MainWindow PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     ENVIRONMENT_MODIFICATION
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
   )

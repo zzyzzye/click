@@ -21,6 +21,10 @@ class MainWindow : public QMainWindow {
 
  public:
   explicit MainWindow(QWidget* parent = nullptr);
+  MainWindow(std::unique_ptr<ClickBackend> backend,
+             std::unique_ptr<HotkeyService> hotkeyService,
+             std::unique_ptr<SettingsRepository> settingsRepository,
+             QWidget* parent = nullptr);
   ~MainWindow() override;
 
  private slots:
@@ -54,7 +58,7 @@ class MainWindow : public QMainWindow {
 
   std::unique_ptr<ClickBackend> backend_;
   std::unique_ptr<HotkeyService> hotkeyService_;
-  SettingsRepository settingsRepository_;
+  std::unique_ptr<SettingsRepository> settingsRepository_;
   ClickController controller_;
 
   QWidget* configPanel_ = nullptr;
