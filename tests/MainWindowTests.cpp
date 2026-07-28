@@ -1,5 +1,6 @@
 #include <QCheckBox>
 #include <QComboBox>
+#include <QFile>
 #include <QLabel>
 #include <QPushButton>
 #include <QSpinBox>
@@ -66,6 +67,7 @@ class MainWindowTests : public QObject {
   void modeControlsFollowProfileChoices();
   void captureHotkeyUsesCurrentCursor();
   void usesPersistentClickFlowShell();
+  void controlChevronResourcesAreAvailable();
 };
 
 void MainWindowTests::windowsFactoriesCreateNativeServices() {
@@ -216,6 +218,11 @@ void MainWindowTests::usesPersistentClickFlowShell() {
   QVERIFY(pages);
   QCOMPARE(sidebar->pageCount(), 3);
   QCOMPARE(pages->count(), 3);
+}
+
+void MainWindowTests::controlChevronResourcesAreAvailable() {
+  QVERIFY(QFile::exists(":/clickflow/icons/chevron-down.svg"));
+  QVERIFY(QFile::exists(":/clickflow/icons/chevron-up.svg"));
 }
 
 QTEST_MAIN(MainWindowTests)

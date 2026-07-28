@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/clickflow/icons">
+    <file alias="chevron-down.svg">chevron-down.svg</file>
+    <file alias="chevron-up.svg">chevron-up.svg</file>
+  </qresource>
+</RCC>

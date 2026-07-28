@@ -163,6 +163,7 @@ if(WIN32)
 endif()
 
 set(SHELL_WIDGET_SOURCES
+  src/app/resources/ClickFlowResources.qrc
   src/app/widgets/NavigationSidebar.cpp
   src/app/widgets/NavigationSidebar.h
   src/app/widgets/StatusStrip.cpp
