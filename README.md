@@ -1,7 +1,11 @@
-# QtClicker
+# ClickFlow
 
-一个基于 `Qt 6 Widgets + C++20` 的跨平台桌面连点器，支持 Windows
-10/11 x64 和 macOS。
+ClickFlow 0.2.0 是一个基于 `Qt 6 Widgets + C++20` 的跨平台桌面连点器，
+支持 Windows 10/11 x64 和 macOS。
+
+项目版本只在顶层 `CMakeLists.txt` 的 `project(ClickFlow VERSION ...)` 中
+维护，并自动传递到应用与平台文件信息。为兼容已有用户配置，内部
+QSettings 应用键继续使用 `QtClicker`。
 
 ## 功能
 
