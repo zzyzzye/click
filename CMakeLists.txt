@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(QtClicker VERSION 0.1.0 LANGUAGES CXX OBJCXX)
+project(QtClicker VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,24 +35,6 @@ set(CORE_SOURCES
   src/core/SettingsRepository.cpp
 )
 
-set(APP_SOURCES
-  src/app/main.cpp
-  src/app/MainWindow.cpp
-)
-
-set(PLATFORM_SOURCES
-  src/platform/macos/MacOSClickBackend.mm
-  src/platform/macos/MacOSHotkeyService.mm
-  src/platform/macos/PlatformServicesMac.mm
-)
-
-set(APP_HEADERS
-  src/app/MainWindow.h
-  src/platform/PlatformServices.h
-  src/platform/macos/MacOSClickBackend.h
-  src/platform/macos/MacOSHotkeyService.h
-)
-
 set(CORE_HEADERS
   src/core/ClickBackend.h
   src/core/ClickController.h
@@ -60,6 +42,55 @@ set(CORE_HEADERS
   src/core/HotkeyService.h
   src/core/SettingsRepository.h
 )
+
+add_library(QtClickerCore STATIC
+  ${CORE_SOURCES}
+  ${CORE_HEADERS}
+)
+
+target_include_directories(QtClickerCore PUBLIC src)
+target_link_libraries(QtClickerCore PUBLIC Qt6::Core)
+
+set(APP_SOURCES
+  src/app/main.cpp
+  src/app/MainWindow.cpp
+)
+
+set(APP_HEADERS
+  src/app/MainWindow.h
+  src/platform/PlatformServices.h
+)
+
+if(APPLE)
+  enable_language(OBJCXX)
+  list(APPEND PLATFORM_SOURCES
+    src/platform/macos/MacOSClickBackend.mm
+    src/platform/macos/MacOSHotkeyService.mm
+    src/platform/macos/PlatformServicesMac.mm
+  )
+  list(APPEND APP_HEADERS
+    src/platform/macos/MacOSClickBackend.h
+    src/platform/macos/MacOSHotkeyService.h
+  )
+elseif(WIN32)
+  list(APPEND PLATFORM_SOURCES
+    src/platform/windows/WindowsInputApi.cpp
+    src/platform/windows/WindowsClickBackend.cpp
+    src/platform/windows/WindowsHotkeyMapping.cpp
+    src/platform/windows/WindowsHotkeyApi.cpp
+    src/platform/windows/WindowsHotkeyService.cpp
+    src/platform/windows/PlatformServicesWindows.cpp
+  )
+  list(APPEND APP_HEADERS
+    src/platform/windows/WindowsInputApi.h
+    src/platform/windows/WindowsClickBackend.h
+    src/platform/windows/WindowsHotkeyMapping.h
+    src/platform/windows/WindowsHotkeyApi.h
+    src/platform/windows/WindowsHotkeyService.h
+  )
+else()
+  message(FATAL_ERROR "QtClicker supports only macOS and Windows.")
+endif()
 
 add_executable(QtClicker MACOSX_BUNDLE
   ${APP_SOURCES}
@@ -70,22 +101,22 @@ add_executable(QtClicker MACOSX_BUNDLE
 )
 
 target_include_directories(QtClicker PRIVATE src)
-target_link_libraries(QtClicker PRIVATE Qt6::Widgets)
+target_link_libraries(QtClicker PRIVATE QtClickerCore Qt6::Widgets)
 
 if(APPLE)
   target_link_libraries(QtClicker PRIVATE
     "-framework ApplicationServices"
     "-framework Carbon"
   )
+elseif(WIN32)
+  target_link_libraries(QtClicker PRIVATE user32)
 endif()
 
 add_executable(QtClickerTests
   tests/ClickerTests.cpp
-  ${CORE_SOURCES}
-  ${CORE_HEADERS}
 )
 
 target_include_directories(QtClickerTests PRIVATE src)
-target_link_libraries(QtClickerTests PRIVATE Qt6::Test Qt6::Widgets)
+target_link_libraries(QtClickerTests PRIVATE QtClickerCore Qt6::Test Qt6::Widgets)
 
 add_test(NAME QtClickerTests COMMAND QtClickerTests)
