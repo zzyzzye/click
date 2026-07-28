@@ -1,0 +1,47 @@
+#include "app/pages/HotkeySettingsPage.h"
+#include <QFrame>
+#include <QFormLayout>
+#include <QKeySequenceEdit>
+#include <QLabel>
+#include <QVBoxLayout>
+
+HotkeySettingsPage::HotkeySettingsPage(QWidget* parent) : QWidget(parent) {
+  auto* root = new QVBoxLayout(this); root->setContentsMargins(0,0,0,0);
+  auto* card = new QFrame(this); card->setObjectName("settingsCard");
+  auto* layout = new QFormLayout(card);
+  auto* title = new QLabel("全局热键", card); title->setObjectName("cardTitle");
+  layout->addRow(title);
+  startStop_ = new QKeySequenceEdit(card); capture_ = new QKeySequenceEdit(card);
+  emergency_ = new QKeySequenceEdit(card);
+  layout->addRow("开始 / 停止", startStop_);
+  layout->addRow("捕获坐标", capture_);
+  layout->addRow("紧急停止", emergency_);
+  layout->addRow(new QLabel("热键被其他应用占用时，ClickFlow 会拒绝整组注册。", card));
+  root->addWidget(card); root->addStretch();
+}
+void HotkeySettingsPage::setProfile(const ClickProfile& p) {
+  startStop_->setKeySequence(QKeySequence::fromString(p.hotkeys.startStop, QKeySequence::PortableText));
+  capture_->setKeySequence(QKeySequence::fromString(p.hotkeys.capturePoint, QKeySequence::PortableText));
+  emergency_->setKeySequence(QKeySequence::fromString(p.hotkeys.emergencyStop, QKeySequence::PortableText));
+}
+void HotkeySettingsPage::applyToProfile(ClickProfile& p) const {
+  p.hotkeys.startStop = startStop_->keySequence().toString(QKeySequence::PortableText);
+  p.hotkeys.capturePoint = capture_->keySequence().toString(QKeySequence::PortableText);
+  p.hotkeys.emergencyStop = emergency_->keySequence().toString(QKeySequence::PortableText);
+}
+bool HotkeySettingsPage::validate(QString* error) const {
+  const struct { QString name; QKeySequence value; } values[] = {
+    {"开始/停止", startStop_->keySequence()}, {"捕获坐标", capture_->keySequence()},
+    {"紧急停止", emergency_->keySequence()}};
+  QStringList seen;
+  for (const auto& value : values) {
+    const QString text = value.value.toString(QKeySequence::PortableText);
+    if (text.isEmpty() || value.value.count() != 1) {
+      *error = QString("请为“%1”设置有效的单段热键。").arg(value.name); return false;
+    }
+    if (seen.contains(text)) { *error = QString("热键 %1 被重复使用。").arg(text); return false; }
+    seen.append(text);
+  }
+  return true;
+}
+void HotkeySettingsPage::setEditingEnabled(bool enabled) { setEnabled(enabled); }

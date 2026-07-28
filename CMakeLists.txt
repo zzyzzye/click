@@ -189,6 +189,30 @@ if(WIN32)
   )
 endif()
 
+set(SHELL_PAGE_SOURCES
+  src/app/pages/ClickSettingsPage.cpp
+  src/app/pages/ClickSettingsPage.h
+  src/app/pages/HotkeySettingsPage.cpp
+  src/app/pages/HotkeySettingsPage.h
+  src/app/pages/PresetsAboutPage.cpp
+  src/app/pages/PresetsAboutPage.h
+)
+
+add_executable(ClickFlowPageTests
+  tests/ClickFlowPageTests.cpp
+  ${SHELL_PAGE_SOURCES}
+)
+target_include_directories(ClickFlowPageTests PRIVATE src)
+target_link_libraries(ClickFlowPageTests PRIVATE QtClickerCore Qt6::Test Qt6::Widgets)
+add_test(NAME ClickFlowPages COMMAND ClickFlowPageTests)
+if(WIN32)
+  set_tests_properties(ClickFlowPages PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+endif()
+
 if(WIN32)
   add_executable(QtClickerWindowsTests
     tests/WindowsClickBackendTests.cpp
