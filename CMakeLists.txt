@@ -77,11 +77,15 @@ elseif(WIN32)
     src/platform/windows/WindowsInputApi.cpp
     src/platform/windows/WindowsClickBackend.cpp
     src/platform/windows/WindowsHotkeyMapping.cpp
+    src/platform/windows/WindowsHotkeyApi.cpp
+    src/platform/windows/WindowsHotkeyService.cpp
   )
   list(APPEND APP_HEADERS
     src/platform/windows/WindowsInputApi.h
     src/platform/windows/WindowsClickBackend.h
     src/platform/windows/WindowsHotkeyMapping.h
+    src/platform/windows/WindowsHotkeyApi.h
+    src/platform/windows/WindowsHotkeyService.h
   )
 else()
   message(FATAL_ERROR "QtClicker supports only macOS and Windows.")
@@ -147,6 +151,10 @@ if(WIN32)
     tests/WindowsHotkeyTests.cpp
     src/platform/windows/WindowsHotkeyMapping.cpp
     src/platform/windows/WindowsHotkeyMapping.h
+    src/platform/windows/WindowsHotkeyApi.cpp
+    src/platform/windows/WindowsHotkeyApi.h
+    src/platform/windows/WindowsHotkeyService.cpp
+    src/platform/windows/WindowsHotkeyService.h
   )
   target_include_directories(QtClickerWindowsHotkeyTests PRIVATE src)
   target_link_libraries(QtClickerWindowsHotkeyTests PRIVATE

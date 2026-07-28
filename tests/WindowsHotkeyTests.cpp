@@ -1,9 +1,46 @@
 #include <QTest>
+#include <QSignalSpy>
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+#include <algorithm>
+#include <memory>
+#include <vector>
+
+#include "core/ClickTypes.h"
+#include "platform/windows/WindowsHotkeyApi.h"
 #include "platform/windows/WindowsHotkeyMapping.h"
+#include "platform/windows/WindowsHotkeyService.h"
+
+struct RegisteredHotkey {
+  int id;
+  quint32 modifiers;
+  quint32 virtualKey;
+};
+
+class FakeWindowsHotkeyApi final : public WindowsHotkeyApi {
+ public:
+  bool registerHotkey(int id, quint32 modifiers, quint32 virtualKey) override {
+    attempts.push_back({id, modifiers, virtualKey});
+    if (id == failingId) {
+      return false;
+    }
+    activeIds.push_back(id);
+    return true;
+  }
+
+  void unregisterHotkey(int id) override {
+    unregisteredIds.push_back(id);
+    activeIds.erase(std::remove(activeIds.begin(), activeIds.end(), id),
+                    activeIds.end());
+  }
+
+  int failingId = -1;
+  std::vector<RegisteredHotkey> attempts;
+  std::vector<int> activeIds;
+  std::vector<int> unregisteredIds;
+};
 
 class WindowsHotkeyTests : public QObject {
   Q_OBJECT
@@ -13,6 +50,9 @@ class WindowsHotkeyTests : public QObject {
   void mapsSupportedSequences();
   void rejectsUnsupportedSequences_data();
   void rejectsUnsupportedSequences();
+  void registersAllProfileBindings();
+  void rollsBackPartialRegistration();
+  void dispatchesRegisteredActions();
 };
 
 void WindowsHotkeyTests::mapsSupportedSequences_data() {
@@ -64,6 +104,66 @@ void WindowsHotkeyTests::rejectsUnsupportedSequences_data() {
 void WindowsHotkeyTests::rejectsUnsupportedSequences() {
   QFETCH(QString, sequence);
   QVERIFY(!mapWindowsHotkey(sequence).has_value());
+}
+
+void WindowsHotkeyTests::registersAllProfileBindings() {
+  auto api = std::make_unique<FakeWindowsHotkeyApi>();
+  auto* observed = api.get();
+  WindowsHotkeyService service(std::move(api));
+
+  ClickProfile profile;
+  profile.hotkeys.startStop = "Ctrl+F6";
+  profile.hotkeys.capturePoint = "Alt+F7";
+  profile.hotkeys.emergencyStop = "Shift+F8";
+
+  QVERIFY(service.registerHotkeys(profile));
+  QCOMPARE(observed->attempts.size(), size_t(3));
+  QCOMPARE(observed->activeIds, std::vector<int>({1, 2, 3}));
+  QCOMPARE(observed->attempts[0].virtualKey, quint32(VK_F6));
+  QCOMPARE(observed->attempts[1].virtualKey, quint32(VK_F7));
+  QCOMPARE(observed->attempts[2].virtualKey, quint32(VK_F8));
+}
+
+void WindowsHotkeyTests::rollsBackPartialRegistration() {
+  auto api = std::make_unique<FakeWindowsHotkeyApi>();
+  api->failingId = 2;
+  auto* observed = api.get();
+  WindowsHotkeyService service(std::move(api));
+  QSignalSpy failureSpy(&service, &HotkeyService::registrationFailed);
+
+  QVERIFY(!service.registerHotkeys(ClickProfile{}));
+  QCOMPARE(observed->attempts.size(), size_t(2));
+  QVERIFY(observed->activeIds.empty());
+  QCOMPARE(observed->unregisteredIds, std::vector<int>({1}));
+  QCOMPARE(failureSpy.count(), 1);
+  QVERIFY(failureSpy.first().first().toString().contains("F7"));
+}
+
+void WindowsHotkeyTests::dispatchesRegisteredActions() {
+  auto api = std::make_unique<FakeWindowsHotkeyApi>();
+  WindowsHotkeyService service(std::move(api));
+  QVERIFY(service.registerHotkeys(ClickProfile{}));
+
+  QSignalSpy startStopSpy(&service, &HotkeyService::startStopPressed);
+  QSignalSpy captureSpy(&service, &HotkeyService::capturePointPressed);
+  QSignalSpy emergencySpy(&service, &HotkeyService::emergencyStopPressed);
+
+  qintptr result = 0;
+  MSG message{};
+  message.message = WM_HOTKEY;
+
+  message.wParam = 1;
+  service.nativeEventFilter("windows_generic_MSG", &message, &result);
+  message.wParam = 2;
+  service.nativeEventFilter("windows_generic_MSG", &message, &result);
+  message.wParam = 3;
+  service.nativeEventFilter("windows_generic_MSG", &message, &result);
+  message.wParam = 99;
+  service.nativeEventFilter("windows_generic_MSG", &message, &result);
+
+  QCOMPARE(startStopSpy.count(), 1);
+  QCOMPARE(captureSpy.count(), 1);
+  QCOMPARE(emergencySpy.count(), 1);
 }
 
 QTEST_APPLESS_MAIN(WindowsHotkeyTests)
