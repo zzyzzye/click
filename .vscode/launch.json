@@ -2,72 +2,33 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug: QtClickerTests",
+            "name": "Debug: ClickFlow (Windows)",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/QtClickerTests.exe",
+            "program": "${workspaceFolder}/build/windows-vs2026-debug/Debug/ClickFlow.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/Debug",
+            "cwd": "${workspaceFolder}/build/windows-vs2026-debug/Debug",
             "environment": [
                 {
                     "name": "PATH",
                     "value": "D:/Qt/6.8.3/msvc2022_64/bin;${env:PATH}"
                 }
             ],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "preLaunchTask": "CMake: Build ClickFlow (Windows)"
         },
         {
-            "name": "Debug: QtClickerWindowsTests",
-            "type": "cppvsdbg",
+            "name": "Debug: ClickFlow (macOS)",
+            "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/QtClickerWindowsTests.exe",
+            "program": "${workspaceFolder}/build/ClickFlow.app/Contents/MacOS/ClickFlow",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/Debug",
-            "environment": [
-                {
-                    "name": "PATH",
-                    "value": "D:/Qt/6.8.3/msvc2022_64/bin;${env:PATH}"
-                }
-            ],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Debug: QtClickerWindowsHotkeyTests",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/QtClickerWindowsHotkeyTests.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/Debug",
-            "environment": [
-                {
-                    "name": "PATH",
-                    "value": "D:/Qt/6.8.3/msvc2022_64/bin;${env:PATH}"
-                }
-            ],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Debug: QtClickerMainWindowTests",
-            "type": "cppvsdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/QtClickerMainWindowTests.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/Debug",
-            "environment": [
-                {
-                    "name": "QT_QPA_PLATFORM",
-                    "value": "offscreen"
-                },
-                {
-                    "name": "PATH",
-                    "value": "D:/Qt/6.8.3/msvc2022_64/bin;${env:PATH}"
-                }
-            ],
-            "console": "integratedTerminal"
+            "cwd": "${workspaceFolder}/build",
+            "MIMode": "lldb",
+            "console": "integratedTerminal",
+            "preLaunchTask": "CMake: Build ClickFlow (macOS)"
         }
     ]
 }

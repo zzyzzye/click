@@ -2,7 +2,39 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "CMake: Configure",
+      "label": "CMake: Configure (Windows)",
+      "type": "shell",
+      "command": "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe",
+      "args": [
+        "--preset",
+        "windows-local"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "group": "build"
+    },
+    {
+      "label": "CMake: Build ClickFlow (Windows)",
+      "type": "shell",
+      "command": "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe",
+      "args": [
+        "--build",
+        "--preset",
+        "windows-vs2026-build"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "CMake: Configure (macOS)",
       "type": "shell",
       "command": "cmake",
       "args": [
@@ -18,11 +50,12 @@
       "group": "build"
     },
     {
-      "label": "CMake: Build",
+      "label": "CMake: Build ClickFlow (macOS)",
       "type": "shell",
       "command": "cmake",
       "args": [
         "--build",
+        "--preset",
         "build"
       ],
       "options": {
@@ -31,29 +64,7 @@
       "problemMatcher": [
         "$gcc"
       ],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "dependsOn": "CMake: Configure"
-    },
-    {
-      "label": "CMake: Test",
-      "type": "shell",
-      "command": "ctest",
-      "args": [
-        "--test-dir",
-        "build",
-        "--output-on-failure"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": [
-        "$gcc"
-      ],
-      "group": "test",
-      "dependsOn": "CMake: Build"
+      "group": "build"
     }
   ]
 }
