@@ -2,8 +2,15 @@
 
 #include <algorithm>
 
+#include "core/AutomationCoordinator.h"
+
 ClickController::ClickController(ClickBackend* backend, QObject* parent)
-    : QObject(parent), backend_(backend) {
+    : ClickController(backend, static_cast<AutomationCoordinator*>(nullptr), parent) {}
+
+ClickController::ClickController(ClickBackend* backend,
+                                 AutomationCoordinator* coordinator,
+                                 QObject* parent)
+    : QObject(parent), backend_(backend), coordinator_(coordinator) {
   clickTimer_.setTimerType(Qt::PreciseTimer);
   countdownTimer_.setInterval(1000);
 
@@ -25,6 +32,15 @@ void ClickController::start(const ClickProfile& profile) {
     emit startRejected(status_);
     return;
   }
+
+  QString ownershipError;
+  if (coordinator_ &&
+      !coordinator_->tryAcquire(AutomationActivity::Clicking, &ownershipError)) {
+    setStatus(ownershipError);
+    emit startRejected(ownershipError);
+    return;
+  }
+  ownsAutomation_ = coordinator_ != nullptr;
 
   activeProfile_ = profile;
   activeProfile_.intervalMs = std::max(1, activeProfile_.intervalMs);
@@ -138,6 +154,10 @@ void ClickController::finishRun(State state, const QString& status) {
   countdownTimer_.stop();
   const bool wasRunning = running_;
   running_ = false;
+  if (ownsAutomation_ && coordinator_) {
+    coordinator_->release(AutomationActivity::Clicking);
+    ownsAutomation_ = false;
+  }
   countdownRemaining_ = 0;
   state_ = state;
   if (state_ != State::Completed && activeProfile_.repeatMode == RepeatMode::Infinite) {

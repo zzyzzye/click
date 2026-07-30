@@ -5,11 +5,15 @@
 
 #include "core/ClickBackend.h"
 
+class AutomationCoordinator;
+
 class ClickController : public QObject {
   Q_OBJECT
 
  public:
   explicit ClickController(ClickBackend* backend, QObject* parent = nullptr);
+  ClickController(ClickBackend* backend, AutomationCoordinator* coordinator,
+                  QObject* parent = nullptr);
 
   void start(const ClickProfile& profile);
   void stop();
@@ -46,6 +50,7 @@ class ClickController : public QObject {
   void setStatus(const QString& status);
 
   ClickBackend* backend_;
+  AutomationCoordinator* coordinator_ = nullptr;
   QTimer clickTimer_;
   QTimer countdownTimer_;
   ClickProfile activeProfile_;
@@ -54,5 +59,6 @@ class ClickController : public QObject {
   int remainingClicks_ = -1;
   int countdownRemaining_ = 0;
   bool running_ = false;
+  bool ownsAutomation_ = false;
 };
 

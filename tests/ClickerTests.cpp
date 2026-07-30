@@ -5,6 +5,7 @@
 #include "core/ClickBackend.h"
 #include "core/ClickController.h"
 #include "core/ClickTypes.h"
+#include "core/AutomationCoordinator.h"
 #include "core/SettingsRepository.h"
 
 class FakeClickBackend : public ClickBackend {
@@ -47,6 +48,7 @@ class ClickerTests : public QObject {
   void controllerFiniteRunCompletes();
   void controllerRejectsWithoutPermission();
   void controllerSendsKeyboardTaps();
+  void controllerUsesExclusiveAutomationOwnership();
   void settingsRepositoryCrud();
 };
 
@@ -133,6 +135,29 @@ void ClickerTests::controllerSendsKeyboardTaps() {
   QTRY_VERIFY_WITH_TIMEOUT(!controller.isRunning(), 500);
   QCOMPARE(backend.keyTapCount, 2);
   QCOMPARE(backend.clickCount, 0);
+}
+
+void ClickerTests::controllerUsesExclusiveAutomationOwnership() {
+  FakeClickBackend backend;
+  AutomationCoordinator coordinator;
+  ClickController controller(&backend, &coordinator);
+  QSignalSpy rejectedSpy(&controller, &ClickController::startRejected);
+
+  QVERIFY(coordinator.tryAcquire(AutomationActivity::Recording));
+  controller.start(ClickProfile{});
+  QCOMPARE(rejectedSpy.count(), 1);
+  QVERIFY(rejectedSpy.first().first().toString().contains(QStringLiteral("录制")));
+  QCOMPARE(backend.clickCount, 0);
+  coordinator.release(AutomationActivity::Recording);
+
+  ClickProfile profile;
+  profile.intervalMs = 10;
+  profile.repeatMode = RepeatMode::Finite;
+  profile.repeatCount = 1;
+  controller.start(profile);
+  QTRY_VERIFY_WITH_TIMEOUT(!controller.isRunning(), 500);
+  QCOMPARE(coordinator.activity(), AutomationActivity::Idle);
+  QCOMPARE(backend.clickCount, 1);
 }
 
 void ClickerTests::settingsRepositoryCrud() {

@@ -37,12 +37,14 @@ configure_file(
 )
 
 set(CORE_SOURCES
+  src/core/AutomationCoordinator.cpp
   src/core/ClickController.cpp
   src/core/ClickTypes.cpp
   src/core/SettingsRepository.cpp
 )
 
 set(CORE_HEADERS
+  src/core/AutomationCoordinator.h
   src/core/ClickBackend.h
   src/core/ClickController.h
   src/core/ClickTypes.h
@@ -145,6 +147,8 @@ endif()
 
 add_executable(ClickFlowMacroTypesTests
   tests/MacroTypesTests.cpp
+  src/core/AutomationCoordinator.cpp
+  src/core/AutomationCoordinator.h
   src/core/MacroTypes.cpp
   src/core/MacroTypes.h
   src/core/MacroRepository.cpp

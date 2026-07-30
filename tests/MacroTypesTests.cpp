@@ -1,11 +1,13 @@
 #include <QFile>
 #include <QJsonDocument>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUuid>
 
 #include "core/MacroRepository.h"
 #include "core/MacroTypes.h"
+#include "core/AutomationCoordinator.h"
 
 namespace {
 
@@ -56,6 +58,7 @@ class MacroTypesTests : public QObject {
   void jsonRoundTripPreservesAllFields();
   void repositorySavesRenamesAndDeletesByUuid();
   void malformedFileDoesNotHideValidMacros();
+  void coordinatorRejectsCompetingActivity();
 };
 
 void MacroTypesTests::jsonRoundTripPreservesAllFields() {
@@ -139,6 +142,26 @@ void MacroTypesTests::malformedFileDoesNotHideValidMacros() {
   QCOMPARE(loaded.first().id, sequence.id);
   QCOMPARE(warnings.size(), 1);
   QVERIFY(warnings.first().contains("broken.json"));
+}
+
+void MacroTypesTests::coordinatorRejectsCompetingActivity() {
+  AutomationCoordinator coordinator;
+  QString error;
+
+  QVERIFY(coordinator.tryAcquire(AutomationActivity::Recording, &error));
+  QCOMPARE(coordinator.activity(), AutomationActivity::Recording);
+  QVERIFY(!coordinator.tryAcquire(AutomationActivity::Clicking, &error));
+  QVERIFY(error.contains(QStringLiteral("录制")));
+
+  coordinator.release(AutomationActivity::Clicking);
+  QCOMPARE(coordinator.activity(), AutomationActivity::Recording);
+  coordinator.release(AutomationActivity::Recording);
+  QCOMPARE(coordinator.activity(), AutomationActivity::Idle);
+
+  QSignalSpy emergencySpy(&coordinator,
+                          &AutomationCoordinator::emergencyStopRequested);
+  coordinator.requestEmergencyStop();
+  QCOMPARE(emergencySpy.count(), 1);
 }
 
 QTEST_APPLESS_MAIN(MacroTypesTests)
