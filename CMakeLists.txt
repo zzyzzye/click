@@ -41,6 +41,9 @@ set(CORE_SOURCES
   src/core/ClickController.cpp
   src/core/ClickTypes.cpp
   src/core/MacroCompressor.cpp
+  src/core/MacroController.cpp
+  src/core/MacroRepository.cpp
+  src/core/MacroTypes.cpp
   src/core/SettingsRepository.cpp
 )
 
@@ -51,8 +54,11 @@ set(CORE_HEADERS
   src/core/ClickTypes.h
   src/core/HotkeyService.h
   src/core/MacroCompressor.h
+  src/core/MacroController.h
   src/core/MacroPlayer.h
   src/core/MacroRecorder.h
+  src/core/MacroRepository.h
+  src/core/MacroTypes.h
   src/core/SettingsRepository.h
 )
 
@@ -165,6 +171,29 @@ target_link_libraries(ClickFlowMacroTypesTests PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME MacroTypes COMMAND ClickFlowMacroTypesTests)
 if(WIN32)
   set_tests_properties(MacroTypes PROPERTIES
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+endif()
+
+add_executable(ClickFlowMacroControllerTests
+  tests/MacroControllerTests.cpp
+  src/core/AutomationCoordinator.cpp
+  src/core/AutomationCoordinator.h
+  src/core/MacroCompressor.cpp
+  src/core/MacroCompressor.h
+  src/core/MacroController.cpp
+  src/core/MacroController.h
+  src/core/MacroPlayer.h
+  src/core/MacroRecorder.h
+  src/core/MacroTypes.cpp
+  src/core/MacroTypes.h
+)
+target_include_directories(ClickFlowMacroControllerTests PRIVATE src)
+target_link_libraries(ClickFlowMacroControllerTests PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME MacroController COMMAND ClickFlowMacroControllerTests)
+if(WIN32)
+  set_tests_properties(MacroController PROPERTIES
     ENVIRONMENT_MODIFICATION
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
   )
