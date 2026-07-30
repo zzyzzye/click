@@ -16,9 +16,9 @@ void AppIdentityTests::appliesClickFlowIdentity() {
 
   QCOMPARE(QCoreApplication::organizationName(), QString("OpenAI"));
   QCOMPARE(QCoreApplication::applicationName(), QString("QtClicker"));
-  QCOMPARE(QCoreApplication::applicationVersion(), QString("0.2.0"));
+  QCOMPARE(QCoreApplication::applicationVersion(), QString("0.3.0"));
   QCOMPARE(QGuiApplication::applicationDisplayName(), QString("ClickFlow"));
-  QCOMPARE(QString(ClickFlowVersion::string), QString("0.2.0"));
+  QCOMPARE(QString(ClickFlowVersion::string), QString("0.3.0"));
 }
 
 QTEST_MAIN(AppIdentityTests)
