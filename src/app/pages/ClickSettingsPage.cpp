@@ -34,6 +34,7 @@ void addRow(QGridLayout* grid, int row, const QString& label, QWidget* control) 
 ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   setObjectName("clickSettingsPage");
   auto* root = new QVBoxLayout(this);
+  root->setSizeConstraint(QLayout::SetMinimumSize);
   root->setContentsMargins(0, 0, 0, 0);
   root->setSpacing(16);
 

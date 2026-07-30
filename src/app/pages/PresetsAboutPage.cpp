@@ -8,7 +8,7 @@
 #include <QVBoxLayout>
 
 PresetsAboutPage::PresetsAboutPage(QWidget* parent) : QWidget(parent) {
-  auto* root = new QVBoxLayout(this); root->setContentsMargins(0,0,0,0); root->setSpacing(16);
+  auto* root = new QVBoxLayout(this); root->setContentsMargins(0,0,0,0); root->setSpacing(16); root->setSizeConstraint(QLayout::SetMinimumSize);
   auto* presets = new QFrame(this); presets->setObjectName("settingsCard");
   auto* p = new QVBoxLayout(presets); auto* title = new QLabel("配置预设", presets); title->setObjectName("cardTitle"); p->addWidget(title);
   list_ = new QListWidget(presets); p->addWidget(list_, 1);

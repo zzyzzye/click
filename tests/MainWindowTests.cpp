@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QLabel>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QTest>
@@ -221,6 +222,12 @@ void MainWindowTests::usesPersistentClickFlowShell() {
   QVERIFY(pages);
   QCOMPARE(sidebar->pageCount(), 3);
   QCOMPARE(pages->count(), 3);
+  for (int index = 0; index < pages->count(); ++index) {
+    auto* scroll = qobject_cast<QScrollArea*>(pages->widget(index));
+    QVERIFY(scroll);
+    QVERIFY(scroll->widgetResizable());
+    QCOMPARE(scroll->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
+  }
 }
 
 void MainWindowTests::controlChevronResourcesAreAvailable() {

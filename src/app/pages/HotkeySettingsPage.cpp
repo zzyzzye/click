@@ -6,7 +6,7 @@
 #include <QVBoxLayout>
 
 HotkeySettingsPage::HotkeySettingsPage(QWidget* parent) : QWidget(parent) {
-  auto* root = new QVBoxLayout(this); root->setContentsMargins(0,0,0,0);
+  auto* root = new QVBoxLayout(this); root->setContentsMargins(0,0,0,0); root->setSizeConstraint(QLayout::SetMinimumSize);
   auto* card = new QFrame(this); card->setObjectName("settingsCard");
   auto* layout = new QFormLayout(card);
   auto* title = new QLabel("全局热键", card); title->setObjectName("cardTitle");

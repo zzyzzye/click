@@ -1,10 +1,14 @@
 #include "app/MainWindow.h"
 
 #include <QDesktopServices>
+#include <QAbstractSpinBox>
+#include <QComboBox>
+#include <QEvent>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QScrollArea>
 #include <QStackedWidget>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -20,6 +24,24 @@
 #include "core/ClickBackend.h"
 #include "core/HotkeyService.h"
 
+namespace {
+
+class IgnoreWheelChangeFilter final : public QObject {
+ public:
+  using QObject::QObject;
+
+ protected:
+  bool eventFilter(QObject* watched, QEvent* event) override {
+    if (event->type() == QEvent::Wheel &&
+        (qobject_cast<QComboBox*>(watched) || qobject_cast<QAbstractSpinBox*>(watched))) {
+      return true;
+    }
+    return QObject::eventFilter(watched, event);
+  }
+};
+
+}  // namespace
+
 MainWindow::MainWindow(QWidget* parent)
     : MainWindow(createClickBackend(), createHotkeyService(),
                  std::make_unique<SettingsRepository>(), parent) {}
@@ -34,6 +56,14 @@ MainWindow::MainWindow(std::unique_ptr<ClickBackend> backend,
       settingsRepository_(std::move(settingsRepository)),
       controller_(backend_.get(), this) {
   buildUi();
+
+  auto* ignoreWheelFilter = new IgnoreWheelChangeFilter(this);
+  for (auto* combo : findChildren<QComboBox*>()) {
+    combo->installEventFilter(ignoreWheelFilter);
+  }
+  for (auto* spinBox : findChildren<QAbstractSpinBox*>()) {
+    spinBox->installEventFilter(ignoreWheelFilter);
+  }
 
   connect(actionBar_, &ActionBar::startStopRequested, this, &MainWindow::handleStartStop);
   connect(clickPage_, &ClickSettingsPage::captureRequested, this, &MainWindow::handleCapturePoint);
@@ -96,9 +126,19 @@ void MainWindow::buildUi() {
   clickPage_ = new ClickSettingsPage(pages_);
   hotkeyPage_ = new HotkeySettingsPage(pages_);
   presetsPage_ = new PresetsAboutPage(pages_);
-  pages_->addWidget(clickPage_);
-  pages_->addWidget(hotkeyPage_);
-  pages_->addWidget(presetsPage_);
+  const auto addScrollablePage = [this](QWidget* page) {
+    auto* scroll = new QScrollArea(pages_);
+    scroll->setWidgetResizable(true);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setFrameShape(QFrame::NoFrame);
+    page->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
+    scroll->setWidget(page);
+    pages_->addWidget(scroll);
+  };
+  addScrollablePage(clickPage_);
+  addScrollablePage(hotkeyPage_);
+  addScrollablePage(presetsPage_);
   actionBar_ = new ActionBar(content);
   layout->addWidget(statusStrip_);
   layout->addWidget(pages_, 1);
