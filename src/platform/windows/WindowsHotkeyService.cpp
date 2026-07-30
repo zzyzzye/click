@@ -34,6 +34,8 @@ bool WindowsHotkeyService::registerHotkeys(const ClickProfile& profile) {
       {profile.hotkeys.startStop, Action::StartStop},
       {profile.hotkeys.capturePoint, Action::CapturePoint},
       {profile.hotkeys.emergencyStop, Action::EmergencyStop},
+      {profile.hotkeys.macroRecord, Action::MacroRecord},
+      {profile.hotkeys.macroPlayback, Action::MacroPlayback},
   };
 
   for (const auto& binding : bindings) {
@@ -107,6 +109,12 @@ void WindowsHotkeyService::dispatch(Action action) {
       break;
     case Action::EmergencyStop:
       emit emergencyStopPressed();
+      break;
+    case Action::MacroRecord:
+      emit macroRecordPressed();
+      break;
+    case Action::MacroPlayback:
+      emit macroPlaybackPressed();
       break;
   }
 }

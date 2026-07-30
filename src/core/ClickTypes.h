@@ -28,6 +28,8 @@ struct HotkeyBindings {
   QString startStop = "F6";
   QString capturePoint = "F7";
   QString emergencyStop = "F8";
+  QString macroRecord = "F9";
+  QString macroPlayback = "F10";
 };
 
 struct ClickProfile {

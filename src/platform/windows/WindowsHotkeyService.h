@@ -30,7 +30,9 @@ class WindowsHotkeyService final : public HotkeyService,
   enum class Action {
     StartStop = 1,
     CapturePoint = 2,
-    EmergencyStop = 3
+    EmergencyStop = 3,
+    MacroRecord = 4,
+    MacroPlayback = 5
   };
 
   bool registerOne(const QString& sequenceText, Action action);

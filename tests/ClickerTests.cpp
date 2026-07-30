@@ -67,6 +67,8 @@ void ClickerTests::clickProfileRoundTrip() {
   profile.hotkeys.startStop = "Ctrl+F6";
   profile.hotkeys.capturePoint = "Ctrl+F7";
   profile.hotkeys.emergencyStop = "Ctrl+F8";
+  profile.hotkeys.macroRecord = "Ctrl+F9";
+  profile.hotkeys.macroPlayback = "Ctrl+F10";
 
   const QVariantMap data = ClickTypes::toVariantMap(profile);
   const ClickProfile restored = ClickTypes::fromVariantMap(data);
@@ -84,6 +86,8 @@ void ClickerTests::clickProfileRoundTrip() {
   QCOMPARE(restored.hotkeys.startStop, profile.hotkeys.startStop);
   QCOMPARE(restored.hotkeys.capturePoint, profile.hotkeys.capturePoint);
   QCOMPARE(restored.hotkeys.emergencyStop, profile.hotkeys.emergencyStop);
+  QCOMPARE(restored.hotkeys.macroRecord, profile.hotkeys.macroRecord);
+  QCOMPARE(restored.hotkeys.macroPlayback, profile.hotkeys.macroPlayback);
 }
 
 void ClickerTests::controllerFiniteRunCompletes() {

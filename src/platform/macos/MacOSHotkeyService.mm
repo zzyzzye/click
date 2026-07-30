@@ -28,7 +28,9 @@ bool MacOSHotkeyService::registerHotkeys(const ClickProfile& profile) {
 
   const bool ok = registerOne(profile.hotkeys.startStop, Action::StartStop) &&
                   registerOne(profile.hotkeys.capturePoint, Action::CapturePoint) &&
-                  registerOne(profile.hotkeys.emergencyStop, Action::EmergencyStop);
+                  registerOne(profile.hotkeys.emergencyStop, Action::EmergencyStop) &&
+                  registerOne(profile.hotkeys.macroRecord, Action::MacroRecord) &&
+                  registerOne(profile.hotkeys.macroPlayback, Action::MacroPlayback);
   if (!ok) {
     unregisterAll();
     emit registrationFailed("Failed to register one or more global hotkeys.");
@@ -95,6 +97,12 @@ void MacOSHotkeyService::dispatchHotkey(int actionId) {
     case Action::EmergencyStop:
       emit emergencyStopPressed();
       break;
+    case Action::MacroRecord:
+      emit macroRecordPressed();
+      break;
+    case Action::MacroPlayback:
+      emit macroPlaybackPressed();
+      break;
   }
 }
 
@@ -102,7 +110,7 @@ bool MacOSHotkeyService::parseSequence(const QString& sequenceText, UInt32* modi
                                        UInt32* keyCode) const {
   const QKeySequence sequence =
       QKeySequence::fromString(sequenceText, QKeySequence::PortableText);
-  if (sequence.count() < 1) {
+  if (sequence.count() != 1) {
     return false;
   }
 

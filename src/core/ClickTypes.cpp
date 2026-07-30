@@ -49,6 +49,8 @@ QVariantMap toVariantMap(const ClickProfile& profile) {
   data.insert("hotkeyStartStop", profile.hotkeys.startStop);
   data.insert("hotkeyCapturePoint", profile.hotkeys.capturePoint);
   data.insert("hotkeyEmergencyStop", profile.hotkeys.emergencyStop);
+  data.insert("hotkeyMacroRecord", profile.hotkeys.macroRecord);
+  data.insert("hotkeyMacroPlayback", profile.hotkeys.macroPlayback);
   return data;
 }
 
@@ -75,6 +77,10 @@ ClickProfile fromVariantMap(const QVariantMap& data) {
       data.value("hotkeyCapturePoint", profile.hotkeys.capturePoint).toString();
   profile.hotkeys.emergencyStop =
       data.value("hotkeyEmergencyStop", profile.hotkeys.emergencyStop).toString();
+  profile.hotkeys.macroRecord =
+      data.value("hotkeyMacroRecord", profile.hotkeys.macroRecord).toString();
+  profile.hotkeys.macroPlayback =
+      data.value("hotkeyMacroPlayback", profile.hotkeys.macroPlayback).toString();
   return profile;
 }
 

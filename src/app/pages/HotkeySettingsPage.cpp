@@ -13,9 +13,15 @@ HotkeySettingsPage::HotkeySettingsPage(QWidget* parent) : QWidget(parent) {
   layout->addRow(title);
   startStop_ = new QKeySequenceEdit(card); capture_ = new QKeySequenceEdit(card);
   emergency_ = new QKeySequenceEdit(card);
+  macroRecord_ = new QKeySequenceEdit(card);
+  macroRecord_->setObjectName("macroRecordHotkeyEdit");
+  macroPlayback_ = new QKeySequenceEdit(card);
+  macroPlayback_->setObjectName("macroPlaybackHotkeyEdit");
   layout->addRow("开始 / 停止", startStop_);
   layout->addRow("捕获坐标", capture_);
   layout->addRow("紧急停止", emergency_);
+  layout->addRow("宏录制 / 停止", macroRecord_);
+  layout->addRow("宏回放 / 停止", macroPlayback_);
   layout->addRow(new QLabel("热键被其他应用占用时，ClickFlow 会拒绝整组注册。", card));
   root->addWidget(card); root->addStretch();
 }
@@ -23,16 +29,26 @@ void HotkeySettingsPage::setProfile(const ClickProfile& p) {
   startStop_->setKeySequence(QKeySequence::fromString(p.hotkeys.startStop, QKeySequence::PortableText));
   capture_->setKeySequence(QKeySequence::fromString(p.hotkeys.capturePoint, QKeySequence::PortableText));
   emergency_->setKeySequence(QKeySequence::fromString(p.hotkeys.emergencyStop, QKeySequence::PortableText));
+  macroRecord_->setKeySequence(QKeySequence::fromString(
+      p.hotkeys.macroRecord, QKeySequence::PortableText));
+  macroPlayback_->setKeySequence(QKeySequence::fromString(
+      p.hotkeys.macroPlayback, QKeySequence::PortableText));
 }
 void HotkeySettingsPage::applyToProfile(ClickProfile& p) const {
   p.hotkeys.startStop = startStop_->keySequence().toString(QKeySequence::PortableText);
   p.hotkeys.capturePoint = capture_->keySequence().toString(QKeySequence::PortableText);
   p.hotkeys.emergencyStop = emergency_->keySequence().toString(QKeySequence::PortableText);
+  p.hotkeys.macroRecord =
+      macroRecord_->keySequence().toString(QKeySequence::PortableText);
+  p.hotkeys.macroPlayback =
+      macroPlayback_->keySequence().toString(QKeySequence::PortableText);
 }
 bool HotkeySettingsPage::validate(const ClickProfile& profile, QString* error) const {
   const struct { QString name; QKeySequence value; } values[] = {
     {"开始/停止", startStop_->keySequence()}, {"捕获坐标", capture_->keySequence()},
-    {"紧急停止", emergency_->keySequence()}};
+    {"紧急停止", emergency_->keySequence()},
+    {"宏录制/停止", macroRecord_->keySequence()},
+    {"宏回放/停止", macroPlayback_->keySequence()}};
   QStringList seen;
   for (const auto& value : values) {
     const QString text = value.value.toString(QKeySequence::PortableText);

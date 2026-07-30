@@ -19,6 +19,8 @@ class HotkeyService : public QObject {
   void startStopPressed();
   void capturePointPressed();
   void emergencyStopPressed();
+  void macroRecordPressed();
+  void macroPlaybackPressed();
   void registrationFailed(const QString& message);
 };
 

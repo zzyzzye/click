@@ -115,13 +115,17 @@ void WindowsHotkeyTests::registersAllProfileBindings() {
   profile.hotkeys.startStop = "Ctrl+F6";
   profile.hotkeys.capturePoint = "Alt+F7";
   profile.hotkeys.emergencyStop = "Shift+F8";
+  profile.hotkeys.macroRecord = "Ctrl+F9";
+  profile.hotkeys.macroPlayback = "Alt+F10";
 
   QVERIFY(service.registerHotkeys(profile));
-  QCOMPARE(observed->attempts.size(), size_t(3));
-  QCOMPARE(observed->activeIds, std::vector<int>({1, 2, 3}));
+  QCOMPARE(observed->attempts.size(), size_t(5));
+  QCOMPARE(observed->activeIds, std::vector<int>({1, 2, 3, 4, 5}));
   QCOMPARE(observed->attempts[0].virtualKey, quint32(VK_F6));
   QCOMPARE(observed->attempts[1].virtualKey, quint32(VK_F7));
   QCOMPARE(observed->attempts[2].virtualKey, quint32(VK_F8));
+  QCOMPARE(observed->attempts[3].virtualKey, quint32(VK_F9));
+  QCOMPARE(observed->attempts[4].virtualKey, quint32(VK_F10));
 }
 
 void WindowsHotkeyTests::rollsBackPartialRegistration() {
@@ -147,6 +151,8 @@ void WindowsHotkeyTests::dispatchesRegisteredActions() {
   QSignalSpy startStopSpy(&service, &HotkeyService::startStopPressed);
   QSignalSpy captureSpy(&service, &HotkeyService::capturePointPressed);
   QSignalSpy emergencySpy(&service, &HotkeyService::emergencyStopPressed);
+  QSignalSpy recordSpy(&service, &HotkeyService::macroRecordPressed);
+  QSignalSpy playbackSpy(&service, &HotkeyService::macroPlaybackPressed);
 
   qintptr result = 0;
   MSG message{};
@@ -158,12 +164,18 @@ void WindowsHotkeyTests::dispatchesRegisteredActions() {
   service.nativeEventFilter("windows_generic_MSG", &message, &result);
   message.wParam = 3;
   service.nativeEventFilter("windows_generic_MSG", &message, &result);
+  message.wParam = 4;
+  service.nativeEventFilter("windows_generic_MSG", &message, &result);
+  message.wParam = 5;
+  service.nativeEventFilter("windows_generic_MSG", &message, &result);
   message.wParam = 99;
   service.nativeEventFilter("windows_generic_MSG", &message, &result);
 
   QCOMPARE(startStopSpy.count(), 1);
   QCOMPARE(captureSpy.count(), 1);
   QCOMPARE(emergencySpy.count(), 1);
+  QCOMPARE(recordSpy.count(), 1);
+  QCOMPARE(playbackSpy.count(), 1);
 }
 
 QTEST_APPLESS_MAIN(WindowsHotkeyTests)

@@ -1,4 +1,5 @@
 #include <QTest>
+#include <QKeySequenceEdit>
 
 #include "app/pages/ClickSettingsPage.h"
 #include "app/pages/HotkeySettingsPage.h"
@@ -52,6 +53,8 @@ void ClickFlowPageTests::hotkeysRoundTripAndValidate() {
   input.hotkeys.startStop = "Ctrl+F6";
   input.hotkeys.capturePoint = "Ctrl+F7";
   input.hotkeys.emergencyStop = "Ctrl+F8";
+  input.hotkeys.macroRecord = "Ctrl+F9";
+  input.hotkeys.macroPlayback = "Ctrl+F10";
 
   HotkeySettingsPage page;
   page.setProfile(input);
@@ -60,12 +63,22 @@ void ClickFlowPageTests::hotkeysRoundTripAndValidate() {
   QCOMPARE(output.hotkeys.startStop, QString("Ctrl+F6"));
   QCOMPARE(output.hotkeys.capturePoint, QString("Ctrl+F7"));
   QCOMPARE(output.hotkeys.emergencyStop, QString("Ctrl+F8"));
+  QCOMPARE(output.hotkeys.macroRecord, QString("Ctrl+F9"));
+  QCOMPARE(output.hotkeys.macroPlayback, QString("Ctrl+F10"));
+  QVERIFY(page.findChild<QKeySequenceEdit*>("macroRecordHotkeyEdit"));
+  QVERIFY(page.findChild<QKeySequenceEdit*>("macroPlaybackHotkeyEdit"));
   QString error;
   QVERIFY(page.validate(input, &error));
   input.inputMode = InputMode::Keyboard;
   input.keyboardKey = "F6";
   QVERIFY(!page.validate(input, &error));
   QVERIFY(error.contains("冲突"));
+
+  input.inputMode = InputMode::Mouse;
+  input.hotkeys.macroRecord = input.hotkeys.startStop;
+  page.setProfile(input);
+  QVERIFY(!page.validate(input, &error));
+  QVERIFY(error.contains("重复"));
 }
 
 void ClickFlowPageTests::presetsAndAboutExposeProductState() {

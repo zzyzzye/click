@@ -21,7 +21,9 @@ class MacOSHotkeyService : public HotkeyService {
   enum class Action {
     StartStop = 1,
     CapturePoint = 2,
-    EmergencyStop = 3
+    EmergencyStop = 3,
+    MacroRecord = 4,
+    MacroPlayback = 5
   };
 
   static OSStatus handleEvent(EventHandlerCallRef nextHandler, EventRef event,
