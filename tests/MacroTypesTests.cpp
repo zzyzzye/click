@@ -62,6 +62,7 @@ class MacroTypesTests : public QObject {
   void coordinatorRejectsCompetingActivity();
   void compressorPreservesTransitionsAndSimplifiesMoves();
   void removesTerminalReservedHotkeyChord();
+  void removesLeadingReservedHotkeyRelease();
 };
 
 void MacroTypesTests::jsonRoundTripPreservesAllFields() {
@@ -240,6 +241,30 @@ void MacroTypesTests::removesTerminalReservedHotkeyChord() {
   QCOMPARE(filtered.size(), 2);
   QCOMPARE(filtered.first().virtualKey, quint32('A'));
   QCOMPARE(filtered.last().type, MacroEventType::KeyUp);
+}
+
+void MacroTypesTests::removesLeadingReservedHotkeyRelease() {
+  QVector<MacroEvent> events;
+  MacroEvent f9Up;
+  f9Up.type = MacroEventType::KeyUp;
+  f9Up.offsetUs = 10000;
+  f9Up.virtualKey = 0x78;
+  events.append(f9Up);
+  MacroEvent typed;
+  typed.type = MacroEventType::KeyDown;
+  typed.offsetUs = 20000;
+  typed.virtualKey = 'A';
+  events.append(typed);
+  typed.type = MacroEventType::KeyUp;
+  typed.offsetUs = 30000;
+  events.append(typed);
+
+  const auto filtered =
+      MacroCompressor::removeReservedTail(events, {QStringLiteral("F9")});
+
+  QCOMPARE(filtered.size(), 2);
+  QCOMPARE(filtered.first().type, MacroEventType::KeyDown);
+  QCOMPARE(filtered.first().virtualKey, quint32('A'));
 }
 
 QTEST_APPLESS_MAIN(MacroTypesTests)

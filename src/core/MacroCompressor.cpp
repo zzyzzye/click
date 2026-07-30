@@ -157,15 +157,37 @@ QVector<MacroEvent> MacroCompressor::compress(const QVector<MacroEvent>& events)
 
 QVector<MacroEvent> MacroCompressor::removeReservedTail(
     const QVector<MacroEvent>& events, const QStringList& reservedHotkeys) {
+  QSet<quint32> reservedKeys;
+  for (const QString& hotkey : reservedHotkeys) {
+    const auto chord = parseChord(hotkey);
+    if (chord) reservedKeys.unite(chord->allowedKeys);
+  }
+
+  QVector<MacroEvent> cleaned;
+  cleaned.reserve(events.size());
+  QSet<quint32> pressedKeys;
+  for (const auto& event : events) {
+    if (event.type == MacroEventType::KeyDown) {
+      pressedKeys.insert(event.virtualKey);
+    } else if (event.type == MacroEventType::KeyUp) {
+      const bool orphanedStartupRelease =
+          event.offsetUs <= 500000 && reservedKeys.contains(event.virtualKey) &&
+          !pressedKeys.contains(event.virtualKey);
+      pressedKeys.remove(event.virtualKey);
+      if (orphanedStartupRelease) continue;
+    }
+    cleaned.append(event);
+  }
+
   for (const QString& hotkey : reservedHotkeys) {
     const auto chord = parseChord(hotkey);
     if (!chord) continue;
     bool mainDown = false;
     bool mainUp = false;
     QSet<quint32> seenKeys;
-    qsizetype firstIndex = events.size();
-    for (qsizetype index = events.size(); index > 0; --index) {
-      const auto& event = events[index - 1];
+    qsizetype firstIndex = cleaned.size();
+    for (qsizetype index = cleaned.size(); index > 0; --index) {
+      const auto& event = cleaned[index - 1];
       if (!isKeyboard(event) || !chord->allowedKeys.contains(event.virtualKey)) break;
       firstIndex = index - 1;
       seenKeys.insert(event.virtualKey);
@@ -180,9 +202,9 @@ QVector<MacroEvent> MacroCompressor::removeReservedTail(
           return std::any_of(group.cbegin(), group.cend(),
                              [&seenKeys](quint32 key) { return seenKeys.contains(key); });
         });
-    if (firstIndex < events.size() && mainDown && mainUp && hasModifiers) {
-      return events.mid(0, firstIndex);
+    if (firstIndex < cleaned.size() && mainDown && mainUp && hasModifiers) {
+      return cleaned.mid(0, firstIndex);
     }
   }
-  return events;
+  return cleaned;
 }
