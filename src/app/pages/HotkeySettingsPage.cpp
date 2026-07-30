@@ -29,7 +29,7 @@ void HotkeySettingsPage::applyToProfile(ClickProfile& p) const {
   p.hotkeys.capturePoint = capture_->keySequence().toString(QKeySequence::PortableText);
   p.hotkeys.emergencyStop = emergency_->keySequence().toString(QKeySequence::PortableText);
 }
-bool HotkeySettingsPage::validate(QString* error) const {
+bool HotkeySettingsPage::validate(const ClickProfile& profile, QString* error) const {
   const struct { QString name; QKeySequence value; } values[] = {
     {"开始/停止", startStop_->keySequence()}, {"捕获坐标", capture_->keySequence()},
     {"紧急停止", emergency_->keySequence()}};
@@ -41,6 +41,16 @@ bool HotkeySettingsPage::validate(QString* error) const {
     }
     if (seen.contains(text)) { *error = QString("热键 %1 被重复使用。").arg(text); return false; }
     seen.append(text);
+  }
+  if (profile.inputMode == InputMode::Keyboard) {
+    const QKeySequence repeated = QKeySequence::fromString(profile.keyboardKey, QKeySequence::PortableText);
+    if (repeated.count() != 1) { *error = "请选择一个有效的键盘按键。"; return false; }
+    const int repeatedKey = repeated[0].toCombined() & ~Qt::KeyboardModifierMask;
+    for (const auto& value : values) {
+      if ((value.value[0].toCombined() & ~Qt::KeyboardModifierMask) == repeatedKey) {
+        *error = QString("连按键 %1 与“%2”热键冲突，请更换该热键后再开始。").arg(profile.keyboardKey, value.name); return false;
+      }
+    }
   }
   return true;
 }

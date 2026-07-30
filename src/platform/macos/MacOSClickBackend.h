@@ -5,6 +5,7 @@
 class MacOSClickBackend : public ClickBackend {
  public:
   bool click(const ClickProfile& profile) override;
+  bool keyTap(const ClickProfile& profile) override;
   QPoint currentCursorPosition() const override;
   bool hasAccessibilityPermission() const override;
   void requestAccessibilityPermission() override;

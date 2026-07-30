@@ -14,6 +14,11 @@ class FakeClickBackend : public ClickBackend {
     return clickResult;
   }
 
+  bool keyTap(const ClickProfile&) override {
+    ++keyTapCount;
+    return keyTapResult;
+  }
+
   QPoint currentCursorPosition() const override {
     return QPoint(50, 60);
   }
@@ -27,9 +32,11 @@ class FakeClickBackend : public ClickBackend {
   }
 
   bool clickResult = true;
+  bool keyTapResult = true;
   bool accessibilityAllowed = true;
   mutable bool requestedPermission = false;
   int clickCount = 0;
+  int keyTapCount = 0;
 };
 
 class ClickerTests : public QObject {
@@ -39,6 +46,7 @@ class ClickerTests : public QObject {
   void clickProfileRoundTrip();
   void controllerFiniteRunCompletes();
   void controllerRejectsWithoutPermission();
+  void controllerSendsKeyboardTaps();
   void settingsRepositoryCrud();
 };
 
@@ -109,6 +117,22 @@ void ClickerTests::controllerRejectsWithoutPermission() {
   QCOMPARE(backend.requestedPermission, true);
   QCOMPARE(controller.isRunning(), false);
   QCOMPARE(rejectedSpy.count(), 1);
+}
+
+void ClickerTests::controllerSendsKeyboardTaps() {
+  FakeClickBackend backend;
+  ClickController controller(&backend);
+  ClickProfile profile;
+  profile.inputMode = InputMode::Keyboard;
+  profile.keyboardKey = "Space";
+  profile.intervalMs = 10;
+  profile.repeatMode = RepeatMode::Finite;
+  profile.repeatCount = 2;
+
+  controller.start(profile);
+  QTRY_VERIFY_WITH_TIMEOUT(!controller.isRunning(), 500);
+  QCOMPARE(backend.keyTapCount, 2);
+  QCOMPARE(backend.clickCount, 0);
 }
 
 void ClickerTests::settingsRepositoryCrud() {

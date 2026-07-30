@@ -16,6 +16,8 @@ class ClickFlowPageTests : public QObject {
 void ClickFlowPageTests::clickSettingsRoundTrip() {
   ClickProfile input;
   input.intervalMs = 250;
+  input.inputMode = InputMode::Keyboard;
+  input.keyboardKey = "Space";
   input.button = ClickButton::Right;
   input.targetMode = TargetMode::FixedPoint;
   input.fixedPoint = QPoint(640, 480);
@@ -31,6 +33,8 @@ void ClickFlowPageTests::clickSettingsRoundTrip() {
   page.applyToProfile(output);
 
   QCOMPARE(output.intervalMs, 250);
+  QCOMPARE(output.inputMode, InputMode::Keyboard);
+  QCOMPARE(output.keyboardKey, QString("Space"));
   QCOMPARE(output.button, ClickButton::Right);
   QCOMPARE(output.targetMode, TargetMode::FixedPoint);
   QCOMPARE(output.fixedPoint, QPoint(640, 480));
@@ -39,7 +43,7 @@ void ClickFlowPageTests::clickSettingsRoundTrip() {
   QCOMPARE(output.jitterRadius, 7);
   QCOMPARE(output.countdownSeconds, 3);
   QCOMPARE(output.alwaysOnTop, true);
-  QVERIFY(page.fixedControlsEnabled());
+  QVERIFY(!page.fixedControlsEnabled());
   QVERIFY(page.repeatCountEnabled());
 }
 
@@ -57,7 +61,11 @@ void ClickFlowPageTests::hotkeysRoundTripAndValidate() {
   QCOMPARE(output.hotkeys.capturePoint, QString("Ctrl+F7"));
   QCOMPARE(output.hotkeys.emergencyStop, QString("Ctrl+F8"));
   QString error;
-  QVERIFY(page.validate(&error));
+  QVERIFY(page.validate(input, &error));
+  input.inputMode = InputMode::Keyboard;
+  input.keyboardKey = "F6";
+  QVERIFY(!page.validate(input, &error));
+  QVERIFY(error.contains("冲突"));
 }
 
 void ClickFlowPageTests::presetsAndAboutExposeProductState() {

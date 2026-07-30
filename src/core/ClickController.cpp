@@ -116,8 +116,11 @@ void ClickController::performClick() {
     return;
   }
 
-  if (!backend_->click(activeProfile_)) {
-    finishRun(State::Error, "点击执行失败");
+  const bool succeeded = activeProfile_.inputMode == InputMode::Keyboard
+                             ? backend_->keyTap(activeProfile_)
+                             : backend_->click(activeProfile_);
+  if (!succeeded) {
+    finishRun(State::Error, activeProfile_.inputMode == InputMode::Keyboard ? "按键执行失败" : "点击执行失败");
     return;
   }
 

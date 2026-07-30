@@ -28,6 +28,8 @@ class MainWindowFakeClickBackend final : public ClickBackend {
     return true;
   }
 
+  bool keyTap(const ClickProfile&) override { return true; }
+
   QPoint currentCursorPosition() const override {
     return QPoint(25, 35);
   }

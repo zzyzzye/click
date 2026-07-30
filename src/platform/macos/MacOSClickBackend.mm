@@ -3,6 +3,7 @@
 #include <ApplicationServices/ApplicationServices.h>
 
 #include <QRandomGenerator>
+#include <QKeySequence>
 
 namespace {
 
@@ -67,6 +68,23 @@ bool MacOSClickBackend::click(const ClickProfile& profile) {
   CFRelease(downEvent);
   CFRelease(upEvent);
   return true;
+}
+
+bool MacOSClickBackend::keyTap(const ClickProfile& profile) {
+  const QKeySequence sequence = QKeySequence::fromString(profile.keyboardKey, QKeySequence::PortableText);
+  if (sequence.count() != 1) return false;
+  const int key = sequence[0].toCombined() & ~Qt::KeyboardModifierMask;
+  CGKeyCode code = 0;
+  if (key == Qt::Key_Space) code = 49;
+  else if (key == Qt::Key_Return || key == Qt::Key_Enter) code = 36;
+  else if (key == Qt::Key_F6) code = 97;
+  else if (key == Qt::Key_F8) code = 100;
+  else return false;
+  CGEventRef down = CGEventCreateKeyboardEvent(nullptr, code, true);
+  CGEventRef up = CGEventCreateKeyboardEvent(nullptr, code, false);
+  if (!down || !up) { if (down) CFRelease(down); if (up) CFRelease(up); return false; }
+  CGEventPost(kCGHIDEventTap, down); CGEventPost(kCGHIDEventTap, up);
+  CFRelease(down); CFRelease(up); return true;
 }
 
 QPoint MacOSClickBackend::currentCursorPosition() const {

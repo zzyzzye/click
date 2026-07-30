@@ -182,8 +182,8 @@ void MainWindow::buildUi() {
 void MainWindow::handleStartStop() {
   if (controller_.isRunning()) { controller_.stop(); return; }
   QString error;
-  if (!validateHotkeys(&error)) { QMessageBox::warning(this, "热键设置无效", error); return; }
   ClickProfile profile = collectProfileFromUi();
+  if (!validateHotkeys(profile, &error)) { QMessageBox::warning(this, "热键设置无效", error); return; }
   if (!hotkeyService_->registerHotkeys(profile)) return;
   settingsRepository_->saveLastUsedProfile(profile);
   controller_.start(profile);
@@ -239,5 +239,5 @@ void MainWindow::updateRunningUi(bool running) {
 }
 void MainWindow::updatePermissionBanner() { statusStrip_->setPermissionState(backend_->hasAccessibilityPermission()); }
 void MainWindow::applyWindowOnTop(bool enabled) { const bool shown = isVisible(); setWindowFlag(Qt::WindowStaysOnTopHint, enabled); if (shown) { show(); raise(); } }
-bool MainWindow::validateHotkeys(QString* error) const { return hotkeyPage_->validate(error); }
+bool MainWindow::validateHotkeys(const ClickProfile& profile, QString* error) const { return hotkeyPage_->validate(profile, error); }
 QString MainWindow::selectedProfileName() const { return presetsPage_->selectedPresetName(); }

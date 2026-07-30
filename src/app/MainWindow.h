@@ -51,7 +51,7 @@ class MainWindow : public QMainWindow {
   void updateRunningUi(bool running);
   void updatePermissionBanner();
   void applyWindowOnTop(bool enabled);
-  bool validateHotkeys(QString* errorMessage) const;
+  bool validateHotkeys(const ClickProfile& profile, QString* errorMessage) const;
   QString selectedProfileName() const;
 
   std::unique_ptr<ClickBackend> backend_;

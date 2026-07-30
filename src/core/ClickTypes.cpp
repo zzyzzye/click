@@ -35,6 +35,8 @@ QVariantMap toVariantMap(const ClickProfile& profile) {
   QVariantMap data;
   data.insert("name", profile.name);
   data.insert("intervalMs", profile.intervalMs);
+  data.insert("inputMode", profile.inputMode == InputMode::Keyboard ? "keyboard" : "mouse");
+  data.insert("keyboardKey", profile.keyboardKey);
   data.insert("button", buttonToString(profile.button));
   data.insert("targetMode", targetModeToString(profile.targetMode));
   data.insert("fixedX", profile.fixedPoint.x());
@@ -54,6 +56,8 @@ ClickProfile fromVariantMap(const QVariantMap& data) {
   ClickProfile profile;
   profile.name = data.value("name", profile.name).toString();
   profile.intervalMs = data.value("intervalMs", profile.intervalMs).toInt();
+  profile.inputMode = data.value("inputMode").toString() == "keyboard" ? InputMode::Keyboard : InputMode::Mouse;
+  profile.keyboardKey = data.value("keyboardKey", profile.keyboardKey).toString();
   profile.button = buttonFromString(data.value("button").toString());
   profile.targetMode = targetModeFromString(data.value("targetMode").toString());
   profile.fixedPoint = QPoint(
@@ -77,7 +81,7 @@ ClickProfile fromVariantMap(const QVariantMap& data) {
 QString toDisplaySummary(const ClickProfile& profile) {
   QStringList parts;
   parts << QString("%1 毫秒").arg(profile.intervalMs)
-        << (profile.button == ClickButton::Left ? "左键" : "右键")
+        << (profile.inputMode == InputMode::Keyboard ? QString("键盘 %1").arg(profile.keyboardKey) : (profile.button == ClickButton::Left ? "左键" : "右键"))
         << (profile.targetMode == TargetMode::FollowCursor
                 ? "跟随鼠标"
                 : QString("固定坐标（%1, %2）")

@@ -9,6 +9,11 @@ enum class ClickButton {
   Right
 };
 
+enum class InputMode {
+  Mouse,
+  Keyboard
+};
+
 enum class TargetMode {
   FollowCursor,
   FixedPoint
@@ -28,6 +33,8 @@ struct HotkeyBindings {
 struct ClickProfile {
   QString name = "Default";
   int intervalMs = 100;
+  InputMode inputMode = InputMode::Mouse;
+  QString keyboardKey = "Space";
   ClickButton button = ClickButton::Left;
   TargetMode targetMode = TargetMode::FollowCursor;
   QPoint fixedPoint = QPoint(0, 0);

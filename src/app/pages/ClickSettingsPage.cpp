@@ -5,6 +5,7 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QLabel>
+#include <QKeySequenceEdit>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QVBoxLayout>
@@ -37,9 +38,15 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   root->setSpacing(16);
 
   QGridLayout* basic = nullptr;
-  auto* basicCard = card("基础点击", this, &basic);
+  auto* basicCard = card("基础设置", this, &basic);
   interval_ = new QSpinBox(this);
   interval_->setRange(1, 600000); interval_->setSuffix(" 毫秒");
+  inputMode_ = new QComboBox(this);
+  inputMode_->addItem("鼠标", int(InputMode::Mouse));
+  inputMode_->addItem("键盘", int(InputMode::Keyboard));
+  keyboardKey_ = new QKeySequenceEdit(this);
+  keyboardKey_->setMaximumSequenceLength(1);
+  keyboardKey_->setKeySequence(QKeySequence(Qt::Key_Space));
   button_ = new QComboBox(this);
   button_->addItem("左键", int(ClickButton::Left));
   button_->addItem("右键", int(ClickButton::Right));
@@ -58,9 +65,11 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   coordinateLayout->addWidget(fixedX_); coordinateLayout->addWidget(fixedY_);
   coordinateLayout->addWidget(capture_);
   addRow(basic, 0, "点击间隔", interval_);
-  addRow(basic, 1, "鼠标按键", button_);
-  addRow(basic, 2, "点击位置", targetMode_);
-  addRow(basic, 3, "固定坐标", coordinates);
+  addRow(basic, 1, "连点类型", inputMode_);
+  addRow(basic, 2, "键盘按键", keyboardKey_);
+  addRow(basic, 3, "鼠标按键", button_);
+  addRow(basic, 4, "点击位置", targetMode_);
+  addRow(basic, 5, "固定坐标", coordinates);
   root->addWidget(basicCard);
 
   QGridLayout* behavior = nullptr;
@@ -83,12 +92,15 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   root->addStretch();
 
   connect(targetMode_, &QComboBox::currentIndexChanged, this, &ClickSettingsPage::updateDependencies);
+  connect(inputMode_, &QComboBox::currentIndexChanged, this, &ClickSettingsPage::updateDependencies);
   connect(repeatMode_, &QComboBox::currentIndexChanged, this, &ClickSettingsPage::updateDependencies);
   connect(capture_, &QPushButton::clicked, this, &ClickSettingsPage::captureRequested);
   connect(alwaysOnTop_, &QCheckBox::toggled, this, &ClickSettingsPage::alwaysOnTopChanged);
   for (auto* spin : {interval_, fixedX_, fixedY_, repeatCount_, jitter_, countdown_})
     connect(spin, &QSpinBox::valueChanged, this, &ClickSettingsPage::settingsChanged);
   connect(button_, &QComboBox::currentIndexChanged, this, &ClickSettingsPage::settingsChanged);
+  connect(inputMode_, &QComboBox::currentIndexChanged, this, &ClickSettingsPage::settingsChanged);
+  connect(keyboardKey_, &QKeySequenceEdit::keySequenceChanged, this, &ClickSettingsPage::settingsChanged);
   connect(targetMode_, &QComboBox::currentIndexChanged, this, &ClickSettingsPage::settingsChanged);
   connect(repeatMode_, &QComboBox::currentIndexChanged, this, &ClickSettingsPage::settingsChanged);
   updateDependencies();
@@ -96,6 +108,8 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
 
 void ClickSettingsPage::setProfile(const ClickProfile& p) {
   interval_->setValue(p.intervalMs);
+  inputMode_->setCurrentIndex(inputMode_->findData(int(p.inputMode)));
+  keyboardKey_->setKeySequence(QKeySequence::fromString(p.keyboardKey, QKeySequence::PortableText));
   button_->setCurrentIndex(button_->findData(int(p.button)));
   targetMode_->setCurrentIndex(targetMode_->findData(int(p.targetMode)));
   fixedX_->setValue(p.fixedPoint.x()); fixedY_->setValue(p.fixedPoint.y());
@@ -106,6 +120,8 @@ void ClickSettingsPage::setProfile(const ClickProfile& p) {
 }
 void ClickSettingsPage::applyToProfile(ClickProfile& p) const {
   p.intervalMs = interval_->value(); p.button = ClickButton(button_->currentData().toInt());
+  p.inputMode = InputMode(inputMode_->currentData().toInt());
+  p.keyboardKey = keyboardKey_->keySequence().toString(QKeySequence::PortableText);
   p.targetMode = TargetMode(targetMode_->currentData().toInt());
   p.fixedPoint = QPoint(fixedX_->value(), fixedY_->value());
   p.repeatMode = RepeatMode(repeatMode_->currentData().toInt());
@@ -120,13 +136,17 @@ void ClickSettingsPage::setEditingEnabled(bool enabled) { setEnabled(enabled); }
 bool ClickSettingsPage::fixedControlsEnabled() const { return fixedX_->isEnabled(); }
 bool ClickSettingsPage::repeatCountEnabled() const { return repeatCount_->isEnabled(); }
 QString ClickSettingsPage::summary() const {
+  const bool keyboard = inputMode_->currentData().toInt() == int(InputMode::Keyboard);
   return QString("%1 毫秒 · %2 · %3")
       .arg(interval_->value())
-      .arg(targetMode_->currentData().toInt() == int(TargetMode::FollowCursor) ? "跟随鼠标" : "固定坐标")
+      .arg(keyboard ? QString("键盘 %1").arg(keyboardKey_->keySequence().toString(QKeySequence::PortableText)) : (targetMode_->currentData().toInt() == int(TargetMode::FollowCursor) ? "跟随鼠标" : "固定坐标"))
       .arg(repeatMode_->currentData().toInt() == int(RepeatMode::Infinite) ? "无限" : QString("%1 次").arg(repeatCount_->value()));
 }
 void ClickSettingsPage::updateDependencies() {
+  const bool keyboard = inputMode_->currentData().toInt() == int(InputMode::Keyboard);
+  keyboardKey_->setEnabled(keyboard);
+  button_->setEnabled(!keyboard); targetMode_->setEnabled(!keyboard);
   const bool fixed = targetMode_->currentData().toInt() == int(TargetMode::FixedPoint);
-  fixedX_->setEnabled(fixed); fixedY_->setEnabled(fixed); capture_->setEnabled(fixed);
+  fixedX_->setEnabled(!keyboard && fixed); fixedY_->setEnabled(!keyboard && fixed); capture_->setEnabled(!keyboard && fixed);
   repeatCount_->setEnabled(repeatMode_->currentData().toInt() == int(RepeatMode::Finite));
 }

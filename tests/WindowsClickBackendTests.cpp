@@ -19,6 +19,8 @@ class FakeWindowsInputApi final : public WindowsInputApi {
     return clickResult;
   }
 
+  bool keyTap(const QString&) override { return true; }
+
   std::optional<QPoint> cursor = QPoint(40, 50);
   QPoint clickedPoint;
   ClickButton clickedButton = ClickButton::Left;

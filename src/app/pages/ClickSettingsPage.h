@@ -8,6 +8,7 @@ class QCheckBox;
 class QComboBox;
 class QPushButton;
 class QSpinBox;
+class QKeySequenceEdit;
 
 class ClickSettingsPage final : public QWidget {
   Q_OBJECT
@@ -32,6 +33,8 @@ class ClickSettingsPage final : public QWidget {
   void updateDependencies();
 
   QSpinBox* interval_ = nullptr;
+  QComboBox* inputMode_ = nullptr;
+  QKeySequenceEdit* keyboardKey_ = nullptr;
   QComboBox* button_ = nullptr;
   QComboBox* targetMode_ = nullptr;
   QSpinBox* fixedX_ = nullptr;

@@ -3,7 +3,7 @@
   "tasks": [
     {
       "label": "CMake: Configure (Windows)",
-      "type": "shell",
+      "type": "process",
       "command": "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe",
       "args": [
         "--preset",
@@ -19,12 +19,14 @@
     },
     {
       "label": "CMake: Build ClickFlow (Windows)",
-      "type": "shell",
+      "type": "process",
       "command": "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe",
       "args": [
         "--build",
         "--preset",
-        "windows-vs2026-build"
+        "windows-vs2026-build",
+        "--target",
+        "QtClicker"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -56,7 +58,9 @@
       "args": [
         "--build",
         "--preset",
-        "build"
+        "build",
+        "--target",
+        "QtClicker"
       ],
       "options": {
         "cwd": "${workspaceFolder}"

@@ -38,6 +38,10 @@ bool WindowsClickBackend::click(const ClickProfile& profile) {
   return api_->clickAt(*point, profile.button);
 }
 
+bool WindowsClickBackend::keyTap(const ClickProfile& profile) {
+  return api_ && api_->keyTap(profile.keyboardKey);
+}
+
 QPoint WindowsClickBackend::currentCursorPosition() const {
   if (!api_) {
     return QPoint();

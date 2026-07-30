@@ -8,7 +8,7 @@ class HotkeySettingsPage final : public QWidget {
   explicit HotkeySettingsPage(QWidget* parent = nullptr);
   void setProfile(const ClickProfile& profile);
   void applyToProfile(ClickProfile& profile) const;
-  bool validate(QString* error) const;
+  bool validate(const ClickProfile& profile, QString* error) const;
   void setEditingEnabled(bool enabled);
  private:
   QKeySequenceEdit* startStop_ = nullptr;
