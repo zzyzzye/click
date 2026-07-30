@@ -143,6 +143,23 @@ if(WIN32)
   )
 endif()
 
+add_executable(ClickFlowMacroTypesTests
+  tests/MacroTypesTests.cpp
+  src/core/MacroTypes.cpp
+  src/core/MacroTypes.h
+  src/core/MacroRepository.cpp
+  src/core/MacroRepository.h
+)
+target_include_directories(ClickFlowMacroTypesTests PRIVATE src)
+target_link_libraries(ClickFlowMacroTypesTests PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME MacroTypes COMMAND ClickFlowMacroTypesTests)
+if(WIN32)
+  set_tests_properties(MacroTypes PROPERTIES
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+endif()
+
 add_executable(ClickFlowIdentityTests
   tests/AppIdentityTests.cpp
   src/app/AppIdentity.cpp
