@@ -238,6 +238,27 @@ if(WIN32)
 endif()
 
 if(WIN32)
+  add_executable(ClickFlowWindowsMacroTests
+    tests/WindowsMacroTests.cpp
+    src/platform/windows/WindowsWindowApi.cpp
+    src/platform/windows/WindowsWindowApi.h
+    src/platform/windows/WindowsWindowService.cpp
+    src/platform/windows/WindowsWindowService.h
+    src/core/WindowService.h
+  )
+  target_include_directories(ClickFlowWindowsMacroTests PRIVATE src)
+  target_link_libraries(ClickFlowWindowsMacroTests PRIVATE
+    Qt6::Core
+    Qt6::Test
+    user32
+    dwmapi
+  )
+  add_test(NAME WindowsMacro COMMAND ClickFlowWindowsMacroTests)
+  set_tests_properties(WindowsMacro PROPERTIES
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+
   add_executable(QtClickerWindowsTests
     tests/WindowsClickBackendTests.cpp
     src/platform/windows/WindowsInputApi.cpp
