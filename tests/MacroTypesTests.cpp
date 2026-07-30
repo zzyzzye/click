@@ -8,6 +8,7 @@
 #include "core/MacroRepository.h"
 #include "core/MacroTypes.h"
 #include "core/AutomationCoordinator.h"
+#include "core/MacroCompressor.h"
 
 namespace {
 
@@ -59,6 +60,8 @@ class MacroTypesTests : public QObject {
   void repositorySavesRenamesAndDeletesByUuid();
   void malformedFileDoesNotHideValidMacros();
   void coordinatorRejectsCompetingActivity();
+  void compressorPreservesTransitionsAndSimplifiesMoves();
+  void removesTerminalReservedHotkeyChord();
 };
 
 void MacroTypesTests::jsonRoundTripPreservesAllFields() {
@@ -162,6 +165,81 @@ void MacroTypesTests::coordinatorRejectsCompetingActivity() {
                           &AutomationCoordinator::emergencyStopRequested);
   coordinator.requestEmergencyStop();
   QCOMPARE(emergencySpy.count(), 1);
+}
+
+void MacroTypesTests::compressorPreservesTransitionsAndSimplifiesMoves() {
+  QVector<MacroEvent> events;
+  for (int index = 0; index < 6; ++index) {
+    MacroEvent move;
+    move.type = MacroEventType::MouseMove;
+    move.offsetUs = index * 4000;
+    move.point = QPoint(index * 2, index * 2);
+    events.append(move);
+  }
+  MacroEvent down;
+  down.type = MacroEventType::MouseButtonDown;
+  down.offsetUs = 21000;
+  down.point = QPoint(10, 10);
+  down.button = MacroMouseButton::Left;
+  events.append(down);
+  MacroEvent drag = down;
+  drag.type = MacroEventType::MouseMove;
+  drag.offsetUs = 25000;
+  drag.point = QPoint(20, 20);
+  events.append(drag);
+  MacroEvent up = down;
+  up.type = MacroEventType::MouseButtonUp;
+  up.offsetUs = 30000;
+  up.point = QPoint(20, 20);
+  events.append(up);
+
+  const auto compressed = MacroCompressor::compress(events);
+
+  QVERIFY(compressed.size() < events.size());
+  QCOMPARE(compressed.first().point, QPoint(0, 0));
+  QCOMPARE(compressed.last().type, MacroEventType::MouseButtonUp);
+  QCOMPARE(compressed.last().button, MacroMouseButton::Left);
+  QVERIFY(std::any_of(compressed.cbegin(), compressed.cend(), [](const MacroEvent& event) {
+    return event.type == MacroEventType::MouseButtonDown;
+  }));
+  QVERIFY(std::any_of(compressed.cbegin(), compressed.cend(), [](const MacroEvent& event) {
+    return event.type == MacroEventType::MouseMove && event.point == QPoint(20, 20);
+  }));
+}
+
+void MacroTypesTests::removesTerminalReservedHotkeyChord() {
+  QVector<MacroEvent> events;
+  MacroEvent typed;
+  typed.type = MacroEventType::KeyDown;
+  typed.offsetUs = 1000;
+  typed.virtualKey = 'A';
+  events.append(typed);
+  typed.type = MacroEventType::KeyUp;
+  typed.offsetUs = 2000;
+  events.append(typed);
+
+  MacroEvent control;
+  control.type = MacroEventType::KeyDown;
+  control.offsetUs = 3000;
+  control.virtualKey = 0x11;
+  events.append(control);
+  MacroEvent f9 = control;
+  f9.virtualKey = 0x78;
+  f9.offsetUs = 3100;
+  events.append(f9);
+  f9.type = MacroEventType::KeyUp;
+  f9.offsetUs = 3200;
+  events.append(f9);
+  control.type = MacroEventType::KeyUp;
+  control.offsetUs = 3300;
+  events.append(control);
+
+  const auto filtered =
+      MacroCompressor::removeReservedTail(events, {QStringLiteral("Ctrl+F9")});
+
+  QCOMPARE(filtered.size(), 2);
+  QCOMPARE(filtered.first().virtualKey, quint32('A'));
+  QCOMPARE(filtered.last().type, MacroEventType::KeyUp);
 }
 
 QTEST_APPLESS_MAIN(MacroTypesTests)

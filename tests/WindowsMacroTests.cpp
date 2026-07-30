@@ -1,9 +1,12 @@
 #include <QTest>
+#include <QSignalSpy>
 
 #include <memory>
 
 #include "platform/windows/WindowsWindowApi.h"
 #include "platform/windows/WindowsWindowService.h"
+#include "platform/windows/WindowsMacroHookApi.h"
+#include "platform/windows/WindowsMacroRecorder.h"
 
 class FakeWindowsWindowApi final : public WindowsWindowApi {
  public:
@@ -43,6 +46,30 @@ class FakeWindowsWindowApi final : public WindowsWindowApi {
   QRect desktop{-1920, 0, 3840, 1080};
 };
 
+class FakeWindowsMacroHookApi final : public WindowsMacroHookApi {
+ public:
+  bool start(InputCallback callback, QString*) override {
+    callback_ = std::move(callback);
+    running = startResult;
+    return startResult;
+  }
+  void stop() override {
+    running = false;
+    callback_ = {};
+  }
+  bool isRunning() const override { return running; }
+  qint64 monotonicNowUs() const override { return nowUs; }
+
+  void send(const WindowsRawInput& input) {
+    if (callback_) callback_(input);
+  }
+
+  InputCallback callback_;
+  qint64 nowUs = 1000000;
+  bool startResult = true;
+  bool running = false;
+};
+
 namespace {
 
 WindowsNativeWindow nativeWindow(quintptr id, const QString& title,
@@ -69,6 +96,8 @@ class WindowsMacroTests : public QObject {
   void resolvesOnlyUniqueWindowIdentity();
   void picksRootWindowAndConvertsCoordinates();
   void checksRecordedClientSizeTolerance();
+  void recorderTranslatesGlobalEventsAndIgnoresInjectedInput();
+  void recorderFiltersWindowInputButCompletesOutsideDrag();
 };
 
 void WindowsMacroTests::filtersIneligibleWindows() {
@@ -150,6 +179,106 @@ void WindowsMacroTests::checksRecordedClientSizeTolerance() {
   QVERIFY(!WindowService::sizeMatches(QSize(1000, 1000), QSize(1021, 1000)));
 }
 
-QTEST_APPLESS_MAIN(WindowsMacroTests)
+void WindowsMacroTests::recorderTranslatesGlobalEventsAndIgnoresInjectedInput() {
+  auto hook = std::make_unique<FakeWindowsMacroHookApi>();
+  auto* observedHook = hook.get();
+  WindowsMacroRecorder recorder(std::move(hook), nullptr);
+  QSignalSpy eventSpy(&recorder, &MacroRecorder::eventCaptured);
+  QString error;
+
+  MacroRecordingOptions options;
+  options.targetMode = MacroTargetMode::Global;
+  QVERIFY2(recorder.start(options, &error), qPrintable(error));
+
+  WindowsRawInput injected;
+  injected.type = WindowsRawInputType::KeyDown;
+  injected.timestampUs = 1000100;
+  injected.virtualKey = 'X';
+  injected.extraInfo = kClickFlowInjectedInputMarker;
+  observedHook->send(injected);
+
+  WindowsRawInput key;
+  key.type = WindowsRawInputType::KeyDown;
+  key.timestampUs = 1001200;
+  key.virtualKey = 'A';
+  key.scanCode = 0x1e;
+  key.flags = 1;
+  observedHook->send(key);
+
+  WindowsRawInput wheel;
+  wheel.type = WindowsRawInputType::HorizontalWheel;
+  wheel.timestampUs = 1002400;
+  wheel.screenPoint = QPoint(400, 300);
+  wheel.wheelDelta = -120;
+  observedHook->send(wheel);
+
+  QTRY_COMPARE(eventSpy.count(), 2);
+  const auto first = qvariant_cast<MacroEvent>(eventSpy.at(0).at(0));
+  QCOMPARE(first.type, MacroEventType::KeyDown);
+  QCOMPARE(first.offsetUs, qint64(1200));
+  QCOMPARE(first.virtualKey, quint32('A'));
+  QCOMPARE(first.scanCode, quint32(0x1e));
+  const auto second = qvariant_cast<MacroEvent>(eventSpy.at(1).at(0));
+  QCOMPARE(second.type, MacroEventType::HorizontalWheel);
+  QCOMPARE(second.point, QPoint(400, 300));
+  QCOMPARE(second.wheelDelta, -120);
+  recorder.stop();
+  QVERIFY(!observedHook->running);
+}
+
+void WindowsMacroTests::recorderFiltersWindowInputButCompletesOutsideDrag() {
+  auto windowApi = std::make_unique<FakeWindowsWindowApi>();
+  windowApi->windows = {nativeWindow(30, "目标", "C:/Apps/target.exe")};
+  windowApi->aliveIds = {30};
+  windowApi->origins.insert(30, QPoint(100, 100));
+  windowApi->foreground = 99;
+  auto* observedWindows = windowApi.get();
+  auto windows = std::make_unique<WindowsWindowService>(std::move(windowApi));
+  const WindowTarget target = windows->availableWindows().first();
+
+  auto hook = std::make_unique<FakeWindowsMacroHookApi>();
+  auto* observedHook = hook.get();
+  WindowsMacroRecorder recorder(std::move(hook), windows.get());
+  QSignalSpy eventSpy(&recorder, &MacroRecorder::eventCaptured);
+  MacroRecordingOptions options;
+  options.targetMode = MacroTargetMode::Window;
+  options.target = target;
+  QString error;
+  QVERIFY2(recorder.start(options, &error), qPrintable(error));
+
+  WindowsRawInput key;
+  key.type = WindowsRawInputType::KeyDown;
+  key.timestampUs = 1000100;
+  key.virtualKey = 'A';
+  observedHook->send(key);
+  QTest::qWait(1);
+  QCOMPARE(eventSpy.count(), 0);
+
+  observedWindows->foreground = 30;
+  observedHook->send(key);
+  WindowsRawInput down;
+  down.type = WindowsRawInputType::MouseButtonDown;
+  down.timestampUs = 1000200;
+  down.screenPoint = QPoint(150, 160);
+  down.button = MacroMouseButton::Left;
+  observedHook->send(down);
+  WindowsRawInput move = down;
+  move.type = WindowsRawInputType::MouseMove;
+  move.timestampUs = 1000300;
+  move.screenPoint = QPoint(950, 760);
+  observedHook->send(move);
+  WindowsRawInput up = move;
+  up.type = WindowsRawInputType::MouseButtonUp;
+  up.timestampUs = 1000400;
+  observedHook->send(up);
+
+  QTRY_COMPARE(eventSpy.count(), 4);
+  QCOMPARE(qvariant_cast<MacroEvent>(eventSpy.at(1).at(0)).point, QPoint(50, 60));
+  QCOMPARE(qvariant_cast<MacroEvent>(eventSpy.at(2).at(0)).point, QPoint(850, 660));
+  QCOMPARE(qvariant_cast<MacroEvent>(eventSpy.at(3).at(0)).type,
+           MacroEventType::MouseButtonUp);
+}
+
+QTEST_GUILESS_MAIN(WindowsMacroTests)
 
 #include "WindowsMacroTests.moc"

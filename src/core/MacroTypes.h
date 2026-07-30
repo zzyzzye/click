@@ -71,6 +71,10 @@ struct MacroSequence {
   MacroPlaybackSettings playback;
 };
 
+Q_DECLARE_METATYPE(MacroEvent)
+Q_DECLARE_METATYPE(WindowTarget)
+Q_DECLARE_METATYPE(MacroSequence)
+
 namespace MacroTypes {
 
 QJsonObject toJson(const MacroSequence& sequence);

@@ -40,6 +40,7 @@ set(CORE_SOURCES
   src/core/AutomationCoordinator.cpp
   src/core/ClickController.cpp
   src/core/ClickTypes.cpp
+  src/core/MacroCompressor.cpp
   src/core/SettingsRepository.cpp
 )
 
@@ -49,6 +50,8 @@ set(CORE_HEADERS
   src/core/ClickController.h
   src/core/ClickTypes.h
   src/core/HotkeyService.h
+  src/core/MacroCompressor.h
+  src/core/MacroRecorder.h
   src/core/SettingsRepository.h
 )
 
@@ -149,6 +152,8 @@ add_executable(ClickFlowMacroTypesTests
   tests/MacroTypesTests.cpp
   src/core/AutomationCoordinator.cpp
   src/core/AutomationCoordinator.h
+  src/core/MacroCompressor.cpp
+  src/core/MacroCompressor.h
   src/core/MacroTypes.cpp
   src/core/MacroTypes.h
   src/core/MacroRepository.cpp
@@ -240,6 +245,13 @@ endif()
 if(WIN32)
   add_executable(ClickFlowWindowsMacroTests
     tests/WindowsMacroTests.cpp
+    src/core/MacroCompressor.cpp
+    src/core/MacroCompressor.h
+    src/core/MacroRecorder.h
+    src/platform/windows/WindowsMacroHookApi.cpp
+    src/platform/windows/WindowsMacroHookApi.h
+    src/platform/windows/WindowsMacroRecorder.cpp
+    src/platform/windows/WindowsMacroRecorder.h
     src/platform/windows/WindowsWindowApi.cpp
     src/platform/windows/WindowsWindowApi.h
     src/platform/windows/WindowsWindowService.cpp
