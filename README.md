@@ -105,21 +105,68 @@ cmake --build build/windows-vs2026-debug --config Debug --parallel
 ctest --test-dir build/windows-vs2026-debug -C Debug --output-on-failure
 ```
 
-### Windows 打包
+### Windows 云端安装包
 
-先构建 Release，再运行仓库中的部署脚本：
+开发电脑不需要安装 Inno Setup，也不需要运行任何安装包。仓库提供
+“Windows 安装包”GitHub Actions 工作流，由 GitHub 的 Windows Runner 完成
+Release 构建、完整测试、Qt/VC++ 运行库部署、Inno Setup 编译和 SHA-256
+计算。
+
+操作步骤：
+
+1. 将需要打包的提交推送到 GitHub。
+2. 打开仓库网页的 **Actions** 页面。
+3. 在左侧选择 **Windows 安装包**。
+4. 点击 **Run workflow**，选择 `main` 后确认运行。
+5. 等待“构建 Windows x64 安装包”任务全部变绿。
+6. 在运行详情页底部下载 `ClickFlow-Windows-x64` artifact。
+
+GitHub 下载的是一个 ZIP，解压后包含：
+
+```text
+ClickFlow-0.3.0-win64-setup.exe
+ClickFlow-0.3.0-win64-setup.exe.sha256
+```
+
+artifact 保存 14 天。受限开发电脑只需下载或转发文件，不需要运行其中的
+EXE。安装包尚未签名，其他电脑安装时 Windows SmartScreen 可能显示
+“未知发布者”。
+
+安装器面向 Windows 10/11 x64，为所有用户安装到 `Program Files\ClickFlow`
+并请求 UAC。开始菜单快捷方式默认勾选，桌面快捷方式默认不勾选，两者均可在
+安装向导中选择。ClickFlow 会出现在“设置 → 应用”和控制面板“程序和功能”
+中；卸载会删除程序、快捷方式、卸载项，以及执行卸载的 Windows 用户保存的
+宏和配置。
+
+#### 手动发布 GitHub Release
+
+确认工作流成功且 `CMakeLists.txt` 中版本正确后，以 0.3.0 为例：
+
+```powershell
+git status --short
+git push origin main
+git tag -a v0.3.0 -m "release: 发布 v0.3.0"
+git push origin v0.3.0
+```
+
+在 GitHub 仓库的 **Releases** 页面基于 `v0.3.0` 创建 Release，上传 artifact
+中的安装器和 `.sha256` 文件，并在发布说明中注明安装包尚未签名。工作流不会
+自动创建标签、推送代码或发布 Release。
+
+#### 本地便携目录
+
+如果只需要部署一个无需安装的便携目录，可以构建 Release 后运行：
 
 ```powershell
 cmake --build build/windows-vs2026-debug --config Release --parallel
 .\scripts\package-windows.ps1 `
   -BuildDir .\build\windows-vs2026-debug `
-  -OutputDir .\dist\QtClicker `
+  -OutputDir .\dist\ClickFlow `
   -QtBinDir D:\Qt\6.8.3\msvc2022_64\bin
 ```
 
-脚本会复制应用并运行 `windeployqt`，产物无需把 Qt 永久加入系统
-`PATH`。若旧版 `windeployqt` 无法识别较新的 Visual Studio，脚本会通过
-Visual Studio Installer 定位并补齐 x64 VC Runtime DLL。
+部署脚本会复制 `ClickFlow.exe`、Qt 依赖和 x64 VC Runtime DLL。便携目录不会
+注册控制面板卸载入口；正式对外发布应使用云端生成的安装包。
 
 ## macOS 构建
 
