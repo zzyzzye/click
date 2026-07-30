@@ -10,6 +10,8 @@ class HotkeySettingsPage final : public QWidget {
   void applyToProfile(ClickProfile& profile) const;
   bool validate(const ClickProfile& profile, QString* error) const;
   void setEditingEnabled(bool enabled);
+ signals:
+  void hotkeysChanged();
  private:
   QKeySequenceEdit* startStop_ = nullptr;
   QKeySequenceEdit* capture_ = nullptr;

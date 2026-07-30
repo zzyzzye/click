@@ -85,6 +85,15 @@ std::optional<ClickProfile> SettingsRepository::loadLastUsedProfile() const {
   return ClickTypes::fromVariantMap(data);
 }
 
+bool SettingsRepository::macroSafetyAcknowledged() const {
+  return settings_.value("macro/safetyAcknowledged", false).toBool();
+}
+
+void SettingsRepository::setMacroSafetyAcknowledged(bool acknowledged) {
+  settings_.setValue("macro/safetyAcknowledged", acknowledged);
+  settings_.sync();
+}
+
 QVariantMap SettingsRepository::readProfileMap(const QString& name) const {
   settings_.beginGroup(profileKey(name));
   const QStringList keys = settings_.childKeys();

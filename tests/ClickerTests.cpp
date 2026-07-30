@@ -50,6 +50,7 @@ class ClickerTests : public QObject {
   void controllerSendsKeyboardTaps();
   void controllerUsesExclusiveAutomationOwnership();
   void settingsRepositoryCrud();
+  void settingsRepositoryPersistsMacroSafetyAcknowledgement();
 };
 
 void ClickerTests::clickProfileRoundTrip() {
@@ -188,6 +189,16 @@ void ClickerTests::settingsRepositoryCrud() {
 
   QVERIFY(repository.deleteProfile("Beta"));
   QVERIFY(!repository.hasProfile("Beta"));
+}
+
+void ClickerTests::settingsRepositoryPersistsMacroSafetyAcknowledgement() {
+  const QString appName =
+      QString("QtClickerSafetyTest-%1").arg(QUuid::createUuid().toString());
+  SettingsRepository repository("OpenAI", appName);
+
+  QVERIFY(!repository.macroSafetyAcknowledged());
+  repository.setMacroSafetyAcknowledged(true);
+  QVERIFY(repository.macroSafetyAcknowledged());
 }
 
 QTEST_MAIN(ClickerTests)

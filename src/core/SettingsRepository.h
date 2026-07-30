@@ -19,6 +19,8 @@ class SettingsRepository {
   bool deleteProfile(const QString& name);
   void saveLastUsedProfile(const ClickProfile& profile);
   std::optional<ClickProfile> loadLastUsedProfile() const;
+  bool macroSafetyAcknowledged() const;
+  void setMacroSafetyAcknowledged(bool acknowledged);
 
  private:
   QVariantMap readProfileMap(const QString& name) const;

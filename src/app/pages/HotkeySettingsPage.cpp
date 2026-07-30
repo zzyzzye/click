@@ -3,6 +3,7 @@
 #include <QFormLayout>
 #include <QKeySequenceEdit>
 #include <QLabel>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 
 HotkeySettingsPage::HotkeySettingsPage(QWidget* parent) : QWidget(parent) {
@@ -24,8 +25,17 @@ HotkeySettingsPage::HotkeySettingsPage(QWidget* parent) : QWidget(parent) {
   layout->addRow("宏回放 / 停止", macroPlayback_);
   layout->addRow(new QLabel("热键被其他应用占用时，ClickFlow 会拒绝整组注册。", card));
   root->addWidget(card); root->addStretch();
+  for (auto* editor : {startStop_, capture_, emergency_, macroRecord_, macroPlayback_}) {
+    connect(editor, &QKeySequenceEdit::keySequenceChanged, this,
+            [this] { emit hotkeysChanged(); });
+  }
 }
 void HotkeySettingsPage::setProfile(const ClickProfile& p) {
+  const QSignalBlocker blockStart(startStop_);
+  const QSignalBlocker blockCapture(capture_);
+  const QSignalBlocker blockEmergency(emergency_);
+  const QSignalBlocker blockRecord(macroRecord_);
+  const QSignalBlocker blockPlayback(macroPlayback_);
   startStop_->setKeySequence(QKeySequence::fromString(p.hotkeys.startStop, QKeySequence::PortableText));
   capture_->setKeySequence(QKeySequence::fromString(p.hotkeys.capturePoint, QKeySequence::PortableText));
   emergency_->setKeySequence(QKeySequence::fromString(p.hotkeys.emergencyStop, QKeySequence::PortableText));

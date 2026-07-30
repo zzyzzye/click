@@ -7,6 +7,7 @@
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QTest>
+#include <QTemporaryDir>
 #include <QUuid>
 
 #include <memory>
@@ -14,6 +15,10 @@
 #include "app/MainWindow.h"
 #include "core/ClickBackend.h"
 #include "core/HotkeyService.h"
+#include "core/MacroPlayer.h"
+#include "core/MacroRecorder.h"
+#include "core/MacroRepository.h"
+#include "core/WindowService.h"
 #include "platform/PlatformServices.h"
 #include "platform/windows/WindowsClickBackend.h"
 #include "platform/windows/WindowsHotkeyService.h"
@@ -60,6 +65,61 @@ class MainWindowFakeHotkeyService final : public HotkeyService {
   }
 };
 
+class MainWindowFakeWindowService final : public WindowService {
+ public:
+  QVector<WindowTarget> availableWindows() const override { return windows; }
+  std::optional<WindowTarget> windowAt(const QPoint&) const override {
+    return windows.isEmpty() ? std::nullopt
+                             : std::optional<WindowTarget>(windows.first());
+  }
+  std::optional<WindowTarget> resolve(const WindowTarget& target,
+                                      QString*) const override { return target; }
+  bool isAlive(const WindowTarget&) const override { return true; }
+  bool isForeground(const WindowTarget&) const override { return true; }
+  bool activate(const WindowTarget&) override { return true; }
+  QSize clientSize(const WindowTarget& target) const override {
+    return target.clientSize;
+  }
+  std::optional<QPoint> screenToClient(const WindowTarget&,
+                                       const QPoint& point) const override { return point; }
+  std::optional<QPoint> clientToScreen(const WindowTarget&,
+                                       const QPoint& point) const override { return point; }
+  QRect virtualDesktopRect() const override { return QRect(0, 0, 1920, 1080); }
+  QString displayName(const WindowTarget& target) const override { return target.title; }
+
+  QVector<WindowTarget> windows;
+};
+
+class MainWindowFakeMacroRecorder final : public MacroRecorder {
+ public:
+  using MacroRecorder::MacroRecorder;
+  bool start(const MacroRecordingOptions&, QString*) override {
+    running = true;
+    return true;
+  }
+  void stop() override { running = false; }
+  bool isRecording() const override { return running; }
+  void capture(const MacroEvent& event) { emit eventCaptured(event); }
+  bool running = false;
+};
+
+class MainWindowFakeMacroPlayer final : public MacroPlayer {
+ public:
+  using MacroPlayer::MacroPlayer;
+  bool prepare(const MacroSequence& sequence, QString*) override {
+    prepared = sequence;
+    return true;
+  }
+  bool inject(const MacroEvent& event, QString*) override {
+    injected.append(event);
+    return true;
+  }
+  void releaseAll() override {}
+  void cancel() override {}
+  MacroSequence prepared;
+  QVector<MacroEvent> injected;
+};
+
 class MainWindowTests : public QObject {
   Q_OBJECT
 
@@ -72,6 +132,7 @@ class MainWindowTests : public QObject {
   void usesPersistentClickFlowShell();
   void controlChevronResourcesAreAvailable();
   void usesClickFlowControlChrome();
+  void macroServicesRecordPersistAndReplay();
 };
 
 void MainWindowTests::windowsFactoriesCreateNativeServices() {
@@ -80,6 +141,10 @@ void MainWindowTests::windowsFactoriesCreateNativeServices() {
 
   QVERIFY(dynamic_cast<WindowsClickBackend*>(backend.get()));
   QVERIFY(dynamic_cast<WindowsHotkeyService*>(hotkeys.get()));
+  auto macros = createMacroPlatformServices();
+  QVERIFY(macros.windowService);
+  QVERIFY(macros.recorder);
+  QVERIFY(macros.player);
 }
 
 void MainWindowTests::availableInputHidesPermissionRequest() {
@@ -252,6 +317,60 @@ void MainWindowTests::usesClickFlowControlChrome() {
   QVERIFY(style.contains(":/clickflow/icons/chevron-up.svg"));
   QVERIFY(compactStyle.contains(
       "#sidebarNavigation { background: transparent; border: none;"));
+}
+
+void MainWindowTests::macroServicesRecordPersistAndReplay() {
+  QTemporaryDir directory;
+  QVERIFY(directory.isValid());
+  const QString appName =
+      QString("QtClickerMacroWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto settings = std::make_unique<SettingsRepository>("OpenAI", appName);
+  settings->setMacroSafetyAcknowledged(true);
+
+  MacroPlatformServices macroServices;
+  macroServices.windowService = std::make_unique<MainWindowFakeWindowService>();
+  auto recorder = std::make_unique<MainWindowFakeMacroRecorder>();
+  auto* observedRecorder = recorder.get();
+  macroServices.recorder = std::move(recorder);
+  auto player = std::make_unique<MainWindowFakeMacroPlayer>();
+  auto* observedPlayer = player.get();
+  macroServices.player = std::move(player);
+  auto macros = std::make_unique<MacroRepository>(directory.path());
+
+  MainWindow window(
+      std::make_unique<MainWindowFakeClickBackend>(),
+      std::make_unique<MainWindowFakeHotkeyService>(), std::move(settings),
+      std::move(macroServices), std::move(macros),
+      [](QWidget*) { return true; },
+      [](QWidget*) { return QString("测试录制"); });
+
+  auto* recordButton = window.findChild<QPushButton*>("macroRecordButton");
+  auto* playButton = window.findChild<QPushButton*>("macroPlayButton");
+  QVERIFY(recordButton);
+  QVERIFY(playButton);
+  recordButton->click();
+  QVERIFY(observedRecorder->running);
+  QCOMPARE(recordButton->text(), QString("停止录制"));
+
+  MacroEvent down;
+  down.type = MacroEventType::KeyDown;
+  down.offsetUs = 1000;
+  down.virtualKey = 'A';
+  observedRecorder->capture(down);
+  MacroEvent up = down;
+  up.type = MacroEventType::KeyUp;
+  up.offsetUs = 2000;
+  observedRecorder->capture(up);
+  recordButton->click();
+
+  MacroRepository persisted(directory.path());
+  const auto saved = persisted.loadAll();
+  QCOMPARE(saved.size(), 1);
+  QCOMPARE(saved.first().name, QString("测试录制"));
+  QVERIFY(playButton->isEnabled());
+  playButton->click();
+  QTRY_COMPARE_WITH_TIMEOUT(observedPlayer->injected.size(), 2, 500);
+  QCOMPARE(observedPlayer->prepared.id, saved.first().id);
 }
 
 QTEST_MAIN(MainWindowTests)

@@ -79,6 +79,7 @@ set(APP_SOURCES
 set(APP_HEADERS
   src/app/MainWindow.h
   src/app/AppIdentity.h
+  src/app/ClickFlow.manifest
   src/platform/PlatformServices.h
 )
 
@@ -106,6 +107,12 @@ elseif(WIN32)
     src/platform/windows/WindowsHotkeyMapping.cpp
     src/platform/windows/WindowsHotkeyApi.cpp
     src/platform/windows/WindowsHotkeyService.cpp
+    src/platform/windows/WindowsMacroHookApi.cpp
+    src/platform/windows/WindowsMacroInputApi.cpp
+    src/platform/windows/WindowsMacroPlayer.cpp
+    src/platform/windows/WindowsMacroRecorder.cpp
+    src/platform/windows/WindowsWindowApi.cpp
+    src/platform/windows/WindowsWindowService.cpp
     src/platform/windows/PlatformServicesWindows.cpp
   )
   list(APPEND APP_HEADERS
@@ -114,6 +121,12 @@ elseif(WIN32)
     src/platform/windows/WindowsHotkeyMapping.h
     src/platform/windows/WindowsHotkeyApi.h
     src/platform/windows/WindowsHotkeyService.h
+    src/platform/windows/WindowsMacroHookApi.h
+    src/platform/windows/WindowsMacroInputApi.h
+    src/platform/windows/WindowsMacroPlayer.h
+    src/platform/windows/WindowsMacroRecorder.h
+    src/platform/windows/WindowsWindowApi.h
+    src/platform/windows/WindowsWindowService.h
   )
 else()
   message(FATAL_ERROR "QtClicker supports only macOS and Windows.")
@@ -137,7 +150,8 @@ if(APPLE)
     "-framework Carbon"
   )
 elseif(WIN32)
-  target_link_libraries(QtClicker PRIVATE user32)
+  target_link_libraries(QtClicker PRIVATE user32 dwmapi)
+  target_link_options(QtClicker PRIVATE /MANIFEST:NO)
 endif()
 
 add_executable(QtClickerTests
@@ -366,6 +380,18 @@ if(WIN32)
     src/platform/windows/WindowsHotkeyApi.cpp
     src/platform/windows/WindowsHotkeyService.cpp
     src/platform/windows/WindowsHotkeyService.h
+    src/platform/windows/WindowsMacroHookApi.cpp
+    src/platform/windows/WindowsMacroHookApi.h
+    src/platform/windows/WindowsMacroInputApi.cpp
+    src/platform/windows/WindowsMacroInputApi.h
+    src/platform/windows/WindowsMacroPlayer.cpp
+    src/platform/windows/WindowsMacroPlayer.h
+    src/platform/windows/WindowsMacroRecorder.cpp
+    src/platform/windows/WindowsMacroRecorder.h
+    src/platform/windows/WindowsWindowApi.cpp
+    src/platform/windows/WindowsWindowApi.h
+    src/platform/windows/WindowsWindowService.cpp
+    src/platform/windows/WindowsWindowService.h
     src/platform/windows/PlatformServicesWindows.cpp
   )
   target_include_directories(QtClickerMainWindowTests PRIVATE src)
@@ -374,6 +400,7 @@ if(WIN32)
     Qt6::Test
     Qt6::Widgets
     user32
+    dwmapi
   )
   add_test(NAME MainWindow COMMAND QtClickerMainWindowTests)
   set_tests_properties(MainWindow PROPERTIES

@@ -3,6 +3,7 @@
 #include <QDesktopServices>
 #include <QAbstractSpinBox>
 #include <QComboBox>
+#include <QDateTime>
 #include <QEvent>
 #include <QHBoxLayout>
 #include <QInputDialog>
@@ -14,6 +15,7 @@
 #include <QVBoxLayout>
 
 #include <utility>
+#include <algorithm>
 
 #include "app/pages/ClickSettingsPage.h"
 #include "app/pages/HotkeySettingsPage.h"
@@ -41,21 +43,63 @@ class IgnoreWheelChangeFilter final : public QObject {
   }
 };
 
+bool defaultMacroSafetyConfirmation(QWidget* parent) {
+  return QMessageBox::question(
+             parent, "开始键鼠录制",
+             "录制文件会保存按键和操作时间，可能反映敏感输入。\n\n"
+             "请不要在录制过程中输入密码、验证码或其他机密信息。是否继续？",
+             QMessageBox::Yes | QMessageBox::No, QMessageBox::No) ==
+         QMessageBox::Yes;
+}
+
+QString defaultMacroName(QWidget* parent) {
+  bool accepted = false;
+  const QString suggested =
+      QString("录制 %1").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH-mm-ss"));
+  const QString name = QInputDialog::getText(parent, "保存录制", "宏名称",
+                                              QLineEdit::Normal, suggested,
+                                              &accepted).trimmed();
+  return accepted ? name : QString();
+}
+
 }  // namespace
 
 MainWindow::MainWindow(QWidget* parent)
     : MainWindow(createClickBackend(), createHotkeyService(),
-                 std::make_unique<SettingsRepository>(), parent) {}
+                 std::make_unique<SettingsRepository>(),
+                 createMacroPlatformServices(),
+                 std::make_unique<MacroRepository>(), {}, {}, parent) {}
 
 MainWindow::MainWindow(std::unique_ptr<ClickBackend> backend,
                        std::unique_ptr<HotkeyService> hotkeyService,
                        std::unique_ptr<SettingsRepository> settingsRepository,
                        QWidget* parent)
+    : MainWindow(std::move(backend), std::move(hotkeyService),
+                 std::move(settingsRepository), MacroPlatformServices{}, nullptr,
+                 {}, {}, parent) {}
+
+MainWindow::MainWindow(
+    std::unique_ptr<ClickBackend> backend,
+    std::unique_ptr<HotkeyService> hotkeyService,
+    std::unique_ptr<SettingsRepository> settingsRepository,
+    MacroPlatformServices macroServices,
+    std::unique_ptr<MacroRepository> macroRepository,
+    MacroSafetyConfirmation safetyConfirmation,
+    MacroNameProvider macroNameProvider, QWidget* parent)
     : QMainWindow(parent),
       backend_(std::move(backend)),
       hotkeyService_(std::move(hotkeyService)),
       settingsRepository_(std::move(settingsRepository)),
-      controller_(backend_.get(), this) {
+      automationCoordinator_(this),
+      controller_(backend_.get(), &automationCoordinator_, this),
+      macroServices_(std::move(macroServices)),
+      macroRepository_(std::move(macroRepository)),
+      macroController_(macroServices_.recorder.get(), macroServices_.player.get(),
+                       &automationCoordinator_, this),
+      safetyConfirmation_(std::move(safetyConfirmation)),
+      macroNameProvider_(std::move(macroNameProvider)) {
+  if (!safetyConfirmation_) safetyConfirmation_ = defaultMacroSafetyConfirmation;
+  if (!macroNameProvider_) macroNameProvider_ = defaultMacroName;
   buildUi();
 
   auto* ignoreWheelFilter = new IgnoreWheelChangeFilter(this);
@@ -72,7 +116,34 @@ MainWindow::MainWindow(std::unique_ptr<ClickBackend> backend,
   connect(clickPage_, &ClickSettingsPage::settingsChanged, this,
           [this] { actionBar_->setSummary(clickPage_->summary()); });
   connect(sidebar_, &NavigationSidebar::pageSelected, this,
-          [this](ShellPage page) { pages_->setCurrentIndex(static_cast<int>(page)); });
+          [this](ShellPage page) {
+            pages_->setCurrentIndex(static_cast<int>(page));
+            actionBar_->setVisible(page != ShellPage::MacroRecording);
+          });
+
+  connect(macroPage_, &MacroRecordingPage::recordRequested, this,
+          &MainWindow::handleMacroRecordRequested);
+  connect(macroPage_, &MacroRecordingPage::playRequested, this,
+          &MainWindow::handleMacroPlayRequested);
+  connect(macroPage_, &MacroRecordingPage::stopRequested, this,
+          &MainWindow::handleMacroStopRequested);
+  connect(macroPage_, &MacroRecordingPage::deleteRequested, this,
+          &MainWindow::handleMacroDeleteRequested);
+  connect(macroPage_, &MacroRecordingPage::renameRequested, this,
+          &MainWindow::handleMacroRenameRequested);
+  connect(macroPage_, &MacroRecordingPage::refreshWindowsRequested, this,
+          [this] { refreshMacroWindows(); });
+  connect(macroPage_, &MacroRecordingPage::windowPointSelected, this,
+          &MainWindow::handleMacroWindowPointSelected);
+  connect(hotkeyPage_, &HotkeySettingsPage::hotkeysChanged, this, [this] {
+    const ClickProfile profile = collectProfileFromUi();
+    QString error;
+    const bool valid = validateHotkeys(profile, &error);
+    const bool registered = valid && hotkeyService_->registerHotkeys(profile);
+    macroPage_->setHotkeys(profile.hotkeys, registered);
+    if (registered) settingsRepository_->saveLastUsedProfile(profile);
+    else if (!valid) macroPage_->setError(error);
+  });
 
   connect(presetsPage_, &PresetsAboutPage::newRequested, this, &MainWindow::handleNewPreset);
   connect(presetsPage_, &PresetsAboutPage::saveRequested, this, &MainWindow::handleSavePreset);
@@ -90,9 +161,36 @@ MainWindow::MainWindow(std::unique_ptr<ClickBackend> backend,
   connect(&controller_, &ClickController::startRejected, this,
           [this](const QString& reason) { QMessageBox::warning(this, "无法启动", reason); });
 
+  connect(&macroController_, &MacroController::stateChanged, this,
+          &MainWindow::handleMacroStateChanged);
+  connect(&macroController_, &MacroController::recordingProgress, macroPage_,
+          &MacroRecordingPage::setRecordingProgress);
+  connect(&macroController_, &MacroController::playbackProgress, macroPage_,
+          &MacroRecordingPage::setPlaybackProgress);
+  connect(&macroController_, &MacroController::recordingCompleted, this,
+          &MainWindow::handleMacroRecordingCompleted);
+  connect(&macroController_, &MacroController::statusChanged, this,
+          [this](const QString& status) { statusStrip_->setStatus(status); });
+  connect(&macroController_, &MacroController::failed, this,
+          [this](const QString& reason) {
+            macroPage_->setError(reason);
+            statusStrip_->setStatus(reason);
+          });
+
   connect(hotkeyService_.get(), &HotkeyService::startStopPressed, this, &MainWindow::handleStartStop);
   connect(hotkeyService_.get(), &HotkeyService::capturePointPressed, this, &MainWindow::handleCapturePoint);
   connect(hotkeyService_.get(), &HotkeyService::emergencyStopPressed, this, &MainWindow::handleEmergencyStop);
+  connect(hotkeyService_.get(), &HotkeyService::macroRecordPressed, this,
+          [this] {
+            if (macroController_.isRecording()) handleMacroStopRequested();
+            else handleMacroRecordRequested(macroPage_->recordingOptions());
+          });
+  connect(hotkeyService_.get(), &HotkeyService::macroPlaybackPressed, this,
+          [this] {
+            if (macroController_.isPlaying()) handleMacroStopRequested();
+            else handleMacroPlayRequested(macroPage_->selectedMacroId(),
+                                          macroPage_->playbackSettings());
+          });
   connect(hotkeyService_.get(), &HotkeyService::registrationFailed, this,
           [this](const QString& message) { QMessageBox::warning(this, "热键注册失败", message); });
 
@@ -102,7 +200,10 @@ MainWindow::MainWindow(std::unique_ptr<ClickBackend> backend,
   applyProfileToUi(profile);
   refreshPresetList(profile.name);
   updatePermissionBanner();
-  hotkeyService_->registerHotkeys(collectProfileFromUi());
+  const bool hotkeysRegistered = hotkeyService_->registerHotkeys(collectProfileFromUi());
+  macroPage_->setHotkeys(profile.hotkeys, hotkeysRegistered);
+  refreshMacroList();
+  refreshMacroWindows();
 }
 
 MainWindow::~MainWindow() = default;
@@ -126,7 +227,11 @@ void MainWindow::buildUi() {
   pages_->setObjectName("contentPages");
   clickPage_ = new ClickSettingsPage(pages_);
   macroPage_ = new MacroRecordingPage(pages_);
-  macroPage_->setSupported(false, "键鼠录制服务正在初始化。");
+  const bool macroSupported = macroServices_.windowService && macroServices_.recorder &&
+                              macroServices_.player && macroRepository_;
+  macroPage_->setSupported(
+      macroSupported,
+      macroSupported ? QString() : "键鼠录制当前仅支持 Windows 10/11。");
   hotkeyPage_ = new HotkeySettingsPage(pages_);
   presetsPage_ = new PresetsAboutPage(pages_);
   const auto addScrollablePage = [this](QWidget* page) {
@@ -233,7 +338,10 @@ void MainWindow::handleStartStop() {
   controller_.start(profile);
 }
 void MainWindow::handleCapturePoint() { clickPage_->setFixedPoint(backend_->currentCursorPosition()); }
-void MainWindow::handleEmergencyStop() { controller_.emergencyStop(); }
+void MainWindow::handleEmergencyStop() {
+  controller_.emergencyStop();
+  macroController_.emergencyStop();
+}
 void MainWindow::handleSavePreset() { ClickProfile p = collectProfileFromUi(); settingsRepository_->saveProfile(p); refreshPresetList(p.name); }
 void MainWindow::handleNewPreset() {
   bool ok = false; const QString name = QInputDialog::getText(this, "新建配置", "配置名称", QLineEdit::Normal, {}, &ok).trimmed();
@@ -253,7 +361,12 @@ void MainWindow::handleDeletePreset() {
   }
 }
 void MainWindow::handleLoadPreset() {
-  if (const auto p = settingsRepository_->loadProfile(selectedProfileName()); p.has_value()) { applyProfileToUi(*p); settingsRepository_->saveLastUsedProfile(*p); }
+  if (const auto p = settingsRepository_->loadProfile(selectedProfileName()); p.has_value()) {
+    applyProfileToUi(*p);
+    settingsRepository_->saveLastUsedProfile(*p);
+    const bool registered = hotkeyService_->registerHotkeys(*p);
+    macroPage_->setHotkeys(p->hotkeys, registered);
+  }
 }
 void MainWindow::handleProfileSelectionChanged() {}
 void MainWindow::handlePermissionRequest() {
@@ -267,11 +380,135 @@ void MainWindow::handleStatusChanged(const QString& status) { statusStrip_->setS
 void MainWindow::handleRunningChanged(bool running) { updateRunningUi(running); }
 void MainWindow::handleCountdownChanged(int seconds) { statusStrip_->setProgress(seconds > 0 ? QString("倒计时 %1 秒").arg(seconds) : "就绪"); }
 void MainWindow::handleRemainingClicksChanged(int remaining) { statusStrip_->setProgress(remaining < 0 ? "剩余次数：无限" : QString("剩余 %1 次").arg(remaining)); }
+void MainWindow::handleMacroRecordRequested(const MacroRecordingOptions& options) {
+  if (!macroServices_.recorder || !macroRepository_) {
+    macroPage_->setError("键鼠录制服务不可用。");
+    return;
+  }
+  if (options.targetMode == MacroTargetMode::Window && !options.target.nativeId) {
+    macroPage_->setError("请先选择一个目标窗口。");
+    return;
+  }
+  if (!confirmMacroSafety()) return;
+  QString error;
+  if (!macroController_.startRecording(options, &error)) {
+    macroPage_->setError(error);
+    statusStrip_->setStatus(error);
+  } else {
+    macroPage_->setError({});
+  }
+}
+
+void MainWindow::handleMacroPlayRequested(
+    const QString& macroId, const MacroPlaybackSettings& settings) {
+  const auto saved = findMacro(macroId);
+  if (!saved) {
+    macroPage_->setError("请先选择一个已保存的宏。");
+    return;
+  }
+  MacroSequence sequence = *saved;
+  sequence.playback = settings;
+  sequence.modifiedAt = QDateTime::currentDateTimeUtc();
+  QString error;
+  if (!macroRepository_->save(sequence, &error) ||
+      !macroController_.startPlayback(sequence, &error)) {
+    macroPage_->setError(error);
+    statusStrip_->setStatus(error);
+  } else {
+    macroPage_->setError({});
+  }
+}
+
+void MainWindow::handleMacroStopRequested() {
+  macroController_.stop();
+}
+
+void MainWindow::handleMacroRecordingCompleted(const MacroSequence& sequence) {
+  if (!macroRepository_) return;
+  MacroSequence saved = sequence;
+  saved.name = macroNameProvider_(this).trimmed();
+  if (saved.name.isEmpty()) {
+    statusStrip_->setStatus("录制未保存");
+    return;
+  }
+  saved.modifiedAt = QDateTime::currentDateTimeUtc();
+  QString error;
+  if (!macroRepository_->save(saved, &error)) {
+    macroPage_->setError(error);
+    return;
+  }
+  refreshMacroList(saved.id);
+  statusStrip_->setStatus("宏已保存");
+}
+
+void MainWindow::handleMacroDeleteRequested(const QString& macroId) {
+  const auto sequence = findMacro(macroId);
+  if (!sequence || !macroRepository_) return;
+  if (QMessageBox::question(this, "删除宏",
+                            QString("确定删除“%1”吗？").arg(sequence->name)) !=
+      QMessageBox::Yes) {
+    return;
+  }
+  QString error;
+  if (!macroRepository_->remove(macroId, &error)) macroPage_->setError(error);
+  refreshMacroList();
+}
+
+void MainWindow::handleMacroRenameRequested(const QString& macroId) {
+  const auto sequence = findMacro(macroId);
+  if (!sequence || !macroRepository_) return;
+  bool accepted = false;
+  const QString name = QInputDialog::getText(
+                           this, "重命名宏", "新名称", QLineEdit::Normal,
+                           sequence->name, &accepted)
+                           .trimmed();
+  if (!accepted || name.isEmpty()) return;
+  QString error;
+  if (!macroRepository_->rename(macroId, name, &error)) macroPage_->setError(error);
+  refreshMacroList(macroId);
+}
+
+void MainWindow::handleMacroWindowPointSelected(const QPoint& globalPoint) {
+  if (!macroServices_.windowService) return;
+  const auto target = macroServices_.windowService->windowAt(globalPoint);
+  if (!target || target->nativeId == static_cast<quintptr>(winId())) {
+    macroPage_->setError("没有选中可录制的目标窗口。");
+    return;
+  }
+  refreshMacroWindows(target->nativeId);
+}
+
+void MainWindow::handleMacroStateChanged(MacroControllerState state) {
+  MacroPageActivity pageActivity = MacroPageActivity::Idle;
+  if (state == MacroControllerState::Recording) pageActivity = MacroPageActivity::Recording;
+  if (state == MacroControllerState::Playing) pageActivity = MacroPageActivity::Playing;
+  macroPage_->setActivity(pageActivity);
+
+  const bool idle = state == MacroControllerState::Idle;
+  clickPage_->setEditingEnabled(idle && !controller_.isRunning());
+  hotkeyPage_->setEditingEnabled(idle && !controller_.isRunning());
+  presetsPage_->setMutationEnabled(idle && !controller_.isRunning());
+  actionBar_->setEnabled(idle);
+
+  const ClickProfile profile = collectProfileFromUi();
+  if (state == MacroControllerState::Recording) {
+    statusStrip_->setProgress(
+        QString("%1 停止 · %2 紧急停止")
+            .arg(profile.hotkeys.macroRecord, profile.hotkeys.emergencyStop));
+  } else if (state == MacroControllerState::Playing) {
+    statusStrip_->setProgress(
+        QString("%1 停止 · %2 紧急停止")
+            .arg(profile.hotkeys.macroPlayback, profile.hotkeys.emergencyStop));
+  } else {
+    statusStrip_->setProgress("就绪");
+  }
+}
 void MainWindow::refreshPresetList(const QString& selected) {
   QStringList names = settingsRepository_->profileNames(); names.sort(Qt::CaseInsensitive); presetsPage_->setPresetNames(names, selected);
 }
 void MainWindow::applyProfileToUi(const ClickProfile& p) {
   currentProfileName_ = p.name; clickPage_->setProfile(p); hotkeyPage_->setProfile(p);
+  macroPage_->setHotkeys(p.hotkeys, false);
   actionBar_->setSummary(clickPage_->summary()); applyWindowOnTop(p.alwaysOnTop);
 }
 ClickProfile MainWindow::collectProfileFromUi() const {
@@ -280,8 +517,57 @@ ClickProfile MainWindow::collectProfileFromUi() const {
 void MainWindow::updateRunningUi(bool running) {
   clickPage_->setEditingEnabled(!running); hotkeyPage_->setEditingEnabled(!running);
   presetsPage_->setMutationEnabled(!running); actionBar_->setRunning(running);
+  actionBar_->setEnabled(true);
+  if (macroServices_.recorder && macroRepository_) {
+    macroPage_->setActivity(running ? MacroPageActivity::Unavailable
+                                    : MacroPageActivity::Idle);
+    if (running) macroPage_->setError("连点运行中，键鼠录制与回放暂不可用。");
+  }
 }
 void MainWindow::updatePermissionBanner() { statusStrip_->setPermissionState(backend_->hasAccessibilityPermission()); }
 void MainWindow::applyWindowOnTop(bool enabled) { const bool shown = isVisible(); setWindowFlag(Qt::WindowStaysOnTopHint, enabled); if (shown) { show(); raise(); } }
 bool MainWindow::validateHotkeys(const ClickProfile& profile, QString* error) const { return hotkeyPage_->validate(profile, error); }
 QString MainWindow::selectedProfileName() const { return presetsPage_->selectedPresetName(); }
+
+void MainWindow::refreshMacroList(const QString& selectedId) {
+  if (!macroRepository_) {
+    macros_.clear();
+    macroPage_->setMacros({});
+    return;
+  }
+  QStringList warnings;
+  macros_ = macroRepository_->loadAll(&warnings);
+  macroPage_->setMacros(macros_, selectedId);
+  if (!warnings.isEmpty()) macroPage_->setError(warnings.first());
+}
+
+void MainWindow::refreshMacroWindows(quintptr selectedNativeId) {
+  if (!macroServices_.windowService) {
+    macroPage_->setAvailableWindows({});
+    return;
+  }
+  QVector<WindowTarget> windows = macroServices_.windowService->availableWindows();
+  const quintptr ownWindow = static_cast<quintptr>(winId());
+  windows.erase(std::remove_if(windows.begin(), windows.end(),
+                               [ownWindow](const WindowTarget& target) {
+                                 return target.nativeId == ownWindow;
+                               }),
+                windows.end());
+  macroPage_->setAvailableWindows(windows, selectedNativeId);
+}
+
+std::optional<MacroSequence> MainWindow::findMacro(const QString& id) const {
+  const auto match = std::find_if(macros_.cbegin(), macros_.cend(),
+                                  [&id](const MacroSequence& sequence) {
+                                    return sequence.id == id;
+                                  });
+  return match == macros_.cend() ? std::nullopt
+                                 : std::optional<MacroSequence>(*match);
+}
+
+bool MainWindow::confirmMacroSafety() {
+  if (settingsRepository_->macroSafetyAcknowledged()) return true;
+  if (!safetyConfirmation_(this)) return false;
+  settingsRepository_->setMacroSafetyAcknowledged(true);
+  return true;
+}

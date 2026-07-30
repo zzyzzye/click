@@ -11,3 +11,7 @@ std::unique_ptr<HotkeyService> createHotkeyService() {
   return std::make_unique<MacOSHotkeyService>();
 }
 
+MacroPlatformServices createMacroPlatformServices() {
+  return {};
+}
+
