@@ -1,0 +1,63 @@
+name: Windows 安装包
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: 构建 Windows x64 安装包
+    runs-on: windows-2025
+    timeout-minutes: 45
+
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 准备 Qt 6.8.3
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: '6.8.3'
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          cache: true
+
+      - name: 构建、测试并生成安装包
+        shell: pwsh
+        run: |
+          $qtBinDir = Join-Path $env:QT_ROOT_DIR 'bin'
+          .\scripts\build-windows-release.ps1 -QtBinDir $qtBinDir
+
+      - name: 写入工作流摘要
+        shell: pwsh
+        run: |
+          $artifacts = Get-ChildItem -LiteralPath 'dist\release' -File |
+            Where-Object { $_.Name -match '\.(exe|sha256)$' }
+          if ($artifacts.Count -ne 2) {
+            throw "Expected one installer and one checksum, found $($artifacts.Count)."
+          }
+
+          '## ClickFlow Windows 安装包已生成' |
+            Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          '' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          foreach ($artifact in $artifacts) {
+            "- ``$($artifact.Name)``" |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+          '' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          '> 安装包尚未签名，Windows SmartScreen 可能显示“未知发布者”。' |
+            Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: 上传安装包产物
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ClickFlow-Windows-x64
+          path: |
+            dist/release/*.exe
+            dist/release/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
