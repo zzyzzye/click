@@ -63,3 +63,11 @@ try {
 }
 
 Write-Output "Windows release helper tests passed."
+
+$installerLanguagePath = Join-Path $repositoryRoot `
+  "installer\languages\ChineseSimplified.isl"
+if (-not (Test-Path -LiteralPath $installerLanguagePath -PathType Leaf)) {
+  throw "The vendored Inno Setup Simplified Chinese language file is missing."
+}
+
+Write-Output "Windows installer resource tests passed."

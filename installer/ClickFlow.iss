@@ -50,7 +50,7 @@ VersionInfoProductName={#AppName}
 VersionInfoProductVersion={#AppVersion}
 
 [Languages]
-Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "chinesesimp"; MessagesFile: "languages\ChineseSimplified.isl"
 
 [Tasks]
 Name: "startmenuicon"; Description: "创建开始菜单快捷方式"; GroupDescription: "快捷方式："; Flags: checkedonce
