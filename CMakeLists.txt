@@ -51,6 +51,7 @@ set(CORE_HEADERS
   src/core/ClickTypes.h
   src/core/HotkeyService.h
   src/core/MacroCompressor.h
+  src/core/MacroPlayer.h
   src/core/MacroRecorder.h
   src/core/SettingsRepository.h
 )
@@ -247,7 +248,12 @@ if(WIN32)
     tests/WindowsMacroTests.cpp
     src/core/MacroCompressor.cpp
     src/core/MacroCompressor.h
+    src/core/MacroPlayer.h
     src/core/MacroRecorder.h
+    src/platform/windows/WindowsMacroInputApi.cpp
+    src/platform/windows/WindowsMacroInputApi.h
+    src/platform/windows/WindowsMacroPlayer.cpp
+    src/platform/windows/WindowsMacroPlayer.h
     src/platform/windows/WindowsMacroHookApi.cpp
     src/platform/windows/WindowsMacroHookApi.h
     src/platform/windows/WindowsMacroRecorder.cpp

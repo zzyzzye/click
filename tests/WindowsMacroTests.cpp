@@ -3,10 +3,16 @@
 
 #include <memory>
 
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 #include "platform/windows/WindowsWindowApi.h"
 #include "platform/windows/WindowsWindowService.h"
 #include "platform/windows/WindowsMacroHookApi.h"
 #include "platform/windows/WindowsMacroRecorder.h"
+#include "platform/windows/WindowsMacroInputApi.h"
+#include "platform/windows/WindowsMacroPlayer.h"
 
 class FakeWindowsWindowApi final : public WindowsWindowApi {
  public:
@@ -70,6 +76,18 @@ class FakeWindowsMacroHookApi final : public WindowsMacroHookApi {
   bool running = false;
 };
 
+class FakeWindowsMacroInputApi final : public WindowsMacroInputApi {
+ public:
+  bool send(const WindowsInjectedInput& input, quint32* errorCode) override {
+    inputs.append(input);
+    if (!sendResult && errorCode) *errorCode = 5;
+    return sendResult;
+  }
+
+  QVector<WindowsInjectedInput> inputs;
+  bool sendResult = true;
+};
+
 namespace {
 
 WindowsNativeWindow nativeWindow(quintptr id, const QString& title,
@@ -86,6 +104,23 @@ WindowsNativeWindow nativeWindow(quintptr id, const QString& title,
   return window;
 }
 
+MacroSequence playableSequence(MacroTargetMode mode = MacroTargetMode::Global) {
+  MacroSequence sequence;
+  sequence.id = "00000000-0000-0000-0000-000000000001";
+  sequence.name = "测试宏";
+  sequence.createdAt = QDateTime::currentDateTimeUtc();
+  sequence.modifiedAt = sequence.createdAt;
+  sequence.targetMode = mode;
+  sequence.durationUs = 1000;
+  MacroEvent event;
+  event.type = MacroEventType::KeyDown;
+  event.offsetUs = 0;
+  event.virtualKey = 'A';
+  event.scanCode = 0x1e;
+  sequence.events.append(event);
+  return sequence;
+}
+
 }  // namespace
 
 class WindowsMacroTests : public QObject {
@@ -98,6 +133,9 @@ class WindowsMacroTests : public QObject {
   void checksRecordedClientSizeTolerance();
   void recorderTranslatesGlobalEventsAndIgnoresInjectedInput();
   void recorderFiltersWindowInputButCompletesOutsideDrag();
+  void playerConvertsEventsAndMarksInjectedInput();
+  void playerReleasesHeldKeysAndButtonsOnce();
+  void playerValidatesWindowAndGlobalCoordinates();
 };
 
 void WindowsMacroTests::filtersIneligibleWindows() {
@@ -277,6 +315,112 @@ void WindowsMacroTests::recorderFiltersWindowInputButCompletesOutsideDrag() {
   QCOMPARE(qvariant_cast<MacroEvent>(eventSpy.at(2).at(0)).point, QPoint(850, 660));
   QCOMPARE(qvariant_cast<MacroEvent>(eventSpy.at(3).at(0)).type,
            MacroEventType::MouseButtonUp);
+}
+
+void WindowsMacroTests::playerConvertsEventsAndMarksInjectedInput() {
+  auto windowApi = std::make_unique<FakeWindowsWindowApi>();
+  windowApi->desktop = QRect(-100, 0, 200, 100);
+  auto windows = std::make_unique<WindowsWindowService>(std::move(windowApi));
+  auto input = std::make_unique<FakeWindowsMacroInputApi>();
+  auto* observed = input.get();
+  WindowsMacroPlayer player(std::move(input), windows.get());
+  MacroSequence sequence = playableSequence();
+  QString error;
+  QVERIFY2(player.prepare(sequence, &error), qPrintable(error));
+
+  MacroEvent key = sequence.events.first();
+  key.nativeFlags = 1;
+  QVERIFY2(player.inject(key, &error), qPrintable(error));
+  QCOMPARE(observed->inputs.last().kind, WindowsInjectedInputKind::Keyboard);
+  QVERIFY(observed->inputs.last().flags & KEYEVENTF_SCANCODE);
+  QVERIFY(observed->inputs.last().flags & KEYEVENTF_EXTENDEDKEY);
+  QCOMPARE(observed->inputs.last().extraInfo, kClickFlowInjectedInputMarker);
+
+  MacroEvent click;
+  click.type = MacroEventType::MouseButtonDown;
+  click.point = QPoint(0, 50);
+  click.button = MacroMouseButton::Left;
+  QVERIFY2(player.inject(click, &error), qPrintable(error));
+  const auto mouse = observed->inputs.last();
+  QCOMPARE(mouse.kind, WindowsInjectedInputKind::Mouse);
+  QVERIFY(mouse.flags & MOUSEEVENTF_MOVE);
+  QVERIFY(mouse.flags & MOUSEEVENTF_ABSOLUTE);
+  QVERIFY(mouse.flags & MOUSEEVENTF_VIRTUALDESK);
+  QVERIFY(mouse.flags & MOUSEEVENTF_LEFTDOWN);
+  QCOMPARE(mouse.extraInfo, kClickFlowInjectedInputMarker);
+
+  MacroEvent wheel = click;
+  wheel.type = MacroEventType::HorizontalWheel;
+  wheel.wheelDelta = -120;
+  QVERIFY2(player.inject(wheel, &error), qPrintable(error));
+  QVERIFY(observed->inputs.last().flags & MOUSEEVENTF_HWHEEL);
+  QCOMPARE(static_cast<qint32>(observed->inputs.last().mouseData), -120);
+}
+
+void WindowsMacroTests::playerReleasesHeldKeysAndButtonsOnce() {
+  auto windowApi = std::make_unique<FakeWindowsWindowApi>();
+  auto windows = std::make_unique<WindowsWindowService>(std::move(windowApi));
+  auto input = std::make_unique<FakeWindowsMacroInputApi>();
+  auto* observed = input.get();
+  WindowsMacroPlayer player(std::move(input), windows.get());
+  MacroSequence sequence = playableSequence();
+  QString error;
+  QVERIFY(player.prepare(sequence, &error));
+
+  QVERIFY(player.inject(sequence.events.first(), &error));
+  MacroEvent down;
+  down.type = MacroEventType::MouseButtonDown;
+  down.point = QPoint(10, 10);
+  down.button = MacroMouseButton::Left;
+  QVERIFY(player.inject(down, &error));
+  QCOMPARE(observed->inputs.size(), 2);
+
+  player.releaseAll();
+  QCOMPARE(observed->inputs.size(), 4);
+  QVERIFY(observed->inputs[2].flags & MOUSEEVENTF_LEFTUP);
+  QVERIFY(observed->inputs[3].flags & KEYEVENTF_KEYUP);
+  player.releaseAll();
+  QCOMPARE(observed->inputs.size(), 4);
+}
+
+void WindowsMacroTests::playerValidatesWindowAndGlobalCoordinates() {
+  auto windowApi = std::make_unique<FakeWindowsWindowApi>();
+  windowApi->windows = {nativeWindow(40, "目标", "C:/Apps/target.exe")};
+  windowApi->aliveIds = {40};
+  windowApi->origins.insert(40, QPoint(100, 100));
+  windowApi->foreground = 99;
+  auto* observedWindows = windowApi.get();
+  auto windows = std::make_unique<WindowsWindowService>(std::move(windowApi));
+  WindowTarget target = windows->availableWindows().first();
+  auto input = std::make_unique<FakeWindowsMacroInputApi>();
+  WindowsMacroPlayer player(std::move(input), windows.get());
+  QString error;
+
+  MacroSequence sequence = playableSequence(MacroTargetMode::Window);
+  sequence.target = target;
+  sequence.target.clientSize = QSize(700, 600);
+  QVERIFY(!player.prepare(sequence, &error));
+  QVERIFY(error.contains("尺寸"));
+
+  sequence.target.clientSize = QSize(800, 600);
+  QVERIFY2(player.prepare(sequence, &error), qPrintable(error));
+  QCOMPARE(observedWindows->activated, quintptr(40));
+
+  MacroEvent move;
+  move.type = MacroEventType::MouseMove;
+  move.point = QPoint(10, 20);
+  observedWindows->foreground = 40;
+  QVERIFY(player.inject(move, &error));
+
+  MacroSequence global = playableSequence();
+  MacroEvent outside;
+  outside.type = MacroEventType::MouseMove;
+  outside.offsetUs = 1000;
+  outside.point = QPoint(5000, 5000);
+  global.events.append(outside);
+  global.durationUs = 1000;
+  QVERIFY(!player.prepare(global, &error));
+  QVERIFY(error.contains("显示器"));
 }
 
 QTEST_GUILESS_MAIN(WindowsMacroTests)
