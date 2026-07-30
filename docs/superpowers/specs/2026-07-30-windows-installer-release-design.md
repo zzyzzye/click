@@ -5,7 +5,7 @@
 
 ## 1. 目标
 
-为 ClickFlow 建立第一版简洁、可重复的 Windows 发布链路：开发者在本地执行一条 PowerShell 命令，即可完成 Release 构建、测试、Qt 运行库部署、安装器生成和 SHA-256 校验文件生成；随后在 GitHub 网页手动创建 Release 并上传产物。
+为 ClickFlow 建立第一版简洁、可重复的 Windows 发布链路：开发者从 GitHub 网页手动触发 Windows 打包工作流，由 GitHub 托管 Runner 完成 Release 构建、测试、Qt 运行库部署、安装器生成和 SHA-256 校验文件生成；随后下载工作流产物，在 GitHub 网页手动创建 Release 并上传。
 
 安装器必须遵循常见 Windows 桌面软件行为：安装到 Program Files、请求管理员权限、出现在“设置 → 应用”和控制面板“程序和功能”中、支持覆盖升级，并提供完整卸载入口。
 
@@ -20,7 +20,9 @@
 - 桌面快捷方式是可选项，默认不勾选。
 - 卸载时默认删除当前用户的全部 ClickFlow 宏和配置，不提供保留选项。
 - 第一版不进行代码签名，但发布脚本为以后接入签名保留边界。
-- 第一阶段不引入 GitHub Actions，也不依赖 GitHub CLI；GitHub Release 由开发者在网页手动创建。
+- 开发机受系统策略限制，不能运行安装包，因此不要求本机安装或运行 Inno Setup。
+- 第一阶段增加仅支持网页手动触发的 GitHub Actions 工作流，不依赖 GitHub CLI，不自动创建标签或 Release。
+- GitHub Release 仍由开发者在网页手动创建。
 
 ## 3. 方案选择
 
@@ -50,6 +52,9 @@ dist/
   release/
     ClickFlow-<version>-win64-setup.exe
     ClickFlow-<version>-win64-setup.exe.sha256
+.github/
+  workflows/
+    windows-package.yml
 ```
 
 `dist/` 继续作为构建产物目录，不提交到 Git。
@@ -62,7 +67,7 @@ dist/
 
 发布脚本读取该版本并传给 Inno Setup；安装器文件名、控制面板显示版本、EXE 版本资源和应用内版本均必须保持一致。脚本在无法读取合法三段式版本时应立即失败，不生成带错误版本的产物。
 
-## 6. 本地发布脚本
+## 6. 打包脚本与云端工作流
 
 `scripts/build-windows-release.ps1` 负责按固定顺序编排：
 
@@ -76,9 +81,17 @@ dist/
 8. 计算安装器 SHA-256，并写入同名 `.sha256` 文件。
 9. 输出最终产物绝对路径和后续手动发布提示。
 
-脚本应允许显式传入构建目录、Qt bin 目录、Inno Setup 编译器路径和输出目录，同时为当前开发环境提供合理默认值。任何输入路径都要先规范化和验证。
+脚本应允许显式传入构建目录、Qt bin 目录、Inno Setup 编译器路径和输出目录，同时为 GitHub Windows Runner 提供合理默认值。任何输入路径都要先规范化和验证。脚本仍可被具备相应工具的其他开发电脑复用，但受限开发机不运行它。
 
-发布构建不自动创建标签、不推送 Git、不创建 GitHub Release，避免一次本地构建意外产生外部发布状态。
+`.github/workflows/windows-package.yml` 只接受 `workflow_dispatch` 手动触发，并执行以下步骤：
+
+1. 检出当前选择的分支或提交；
+2. 准备固定版本的 Qt 6.8.3 MSVC x64；
+3. 调用 `build-windows-release.ps1`；
+4. 上传安装器和 SHA-256 为 GitHub Actions artifact；
+5. 在工作流摘要中显示版本、产物名称和未签名提示。
+
+工作流只授予读取仓库内容所需权限，不接触发布密钥，不自动创建标签、不推送 Git、不创建 GitHub Release，避免一次试运行意外产生公开发布状态。
 
 ## 7. 安装器行为
 
@@ -136,17 +149,17 @@ dist/
 
 ## 11. GitHub Release 手动流程
 
-本地发布成功后，开发者执行：
+云端打包成功后，开发者执行：
 
-1. 确认工作区干净、测试通过且版本号正确。
-2. 推送 `main`。
-3. 创建带说明的 `v<version>` 标签并推送。
-4. 在 GitHub 仓库网页基于该标签创建 Release。
-5. 上传安装器与 `.sha256` 文件。
-6. 填写本版本主要功能、修复、安装说明和未签名提示。
-7. 发布 Release，并在干净 Windows 环境验证下载安装与卸载。
+1. 在 GitHub Actions 页面手动运行 Windows 打包工作流；
+2. 确认构建与完整测试通过，下载工作流 artifact；
+3. 创建带说明的 `v<version>` 标签并推送；
+4. 在 GitHub 仓库网页基于该标签创建 Release；
+5. 上传 artifact 中的安装器与 `.sha256` 文件；
+6. 填写本版本主要功能、修复、安装说明和未签名提示；
+7. 发布 Release，并在允许运行安装包的干净 Windows 环境验证下载安装与卸载。
 
-第一阶段不把上述 Git/GitHub 操作写进构建脚本。后续需要自动化时，可在保持安装器和本地脚本不变的前提下增加 GitHub Actions。
+第一阶段不把标签和 Release 操作写进构建脚本或工作流。后续需要自动发布时，可在保持安装器和本地脚本不变的前提下扩展工作流。
 
 ## 12. 验证标准
 
@@ -162,6 +175,8 @@ dist/
 - 同版本重装和更高版本覆盖安装不会产生重复卸载项；
 - 卸载后程序目录、快捷方式、卸载项、当前用户宏和配置均被删除；
 - `.sha256` 与安装器实际哈希一致；
+- GitHub Actions 可以从网页手动触发，并上传只包含安装器和校验文件的 artifact；
+- 受限开发机不需要安装或运行 Inno Setup；
 - Git 工作区不包含 staging、安装器或其他生成产物。
 
 ## 13. 暂不包含
@@ -169,7 +184,7 @@ dist/
 - macOS 安装包；
 - ARM64 或 x86 安装包；
 - 自动更新；
-- GitHub Actions 自动发布；
+- GitHub Actions 自动触发、自动打标签或自动发布 Release；
 - GitHub CLI 自动发布；
 - 代码签名和时间戳服务；
 - MSI、MSIX 或 Microsoft Store 发布；

@@ -1,5 +1,7 @@
 # ClickFlow Windows Installer and Release Implementation Plan
 
+> **Status update:** Tasks 1–2 were completed locally. Because the development computer cannot run installer packages, Tasks 3–6 are superseded by `docs/superpowers/plans/2026-07-30-windows-cloud-packaging.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a repeatable local Windows x64 release command that tests ClickFlow, deploys its Qt runtime, creates a Windows-standard Inno Setup installer, and emits a SHA-256 file for manual GitHub Release upload.
