@@ -16,19 +16,15 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+$modulePath = Join-Path $PSScriptRoot "WindowsReleaseTools.psm1"
+Import-Module $modulePath -Force
+
 $resolvedBuildDir = (Resolve-Path -LiteralPath $BuildDir).Path
 $resolvedQtBinDir = (Resolve-Path -LiteralPath $QtBinDir).Path
 $windeployqtPath = Join-Path $resolvedQtBinDir "windeployqt.exe"
 
-$configuredExe = Join-Path (Join-Path $resolvedBuildDir $Configuration) "QtClicker.exe"
-$singleConfigExe = Join-Path $resolvedBuildDir "QtClicker.exe"
-$sourceExe = if (Test-Path -LiteralPath $configuredExe -PathType Leaf) {
-  $configuredExe
-} elseif (Test-Path -LiteralPath $singleConfigExe -PathType Leaf) {
-  $singleConfigExe
-} else {
-  throw "QtClicker.exe was not found for configuration '$Configuration' in '$resolvedBuildDir'."
-}
+$sourceExe = Resolve-ClickFlowExecutable `
+  -BuildDir $resolvedBuildDir -Configuration $Configuration
 
 if (-not (Test-Path -LiteralPath $windeployqtPath -PathType Leaf)) {
   throw "windeployqt.exe was not found in '$resolvedQtBinDir'."
@@ -37,7 +33,7 @@ if (-not (Test-Path -LiteralPath $windeployqtPath -PathType Leaf)) {
 $resolvedOutputDir = [System.IO.Path]::GetFullPath($OutputDir)
 New-Item -ItemType Directory -Path $resolvedOutputDir -Force | Out-Null
 
-$deployedExe = Join-Path $resolvedOutputDir "QtClicker.exe"
+$deployedExe = Join-Path $resolvedOutputDir "ClickFlow.exe"
 Copy-Item -LiteralPath $sourceExe -Destination $deployedExe -Force
 
 $deployMode = if ($Configuration -eq "Debug") { "--debug" } else { "--release" }
@@ -85,4 +81,4 @@ if ($Configuration -eq "Release" -and
     Copy-Item -Destination $resolvedOutputDir -Force
 }
 
-Write-Output "Packaged QtClicker at $resolvedOutputDir"
+Write-Output "Packaged ClickFlow at $resolvedOutputDir"
