@@ -226,6 +226,8 @@ set(SHELL_WIDGET_SOURCES
   src/app/widgets/StatusStrip.h
   src/app/widgets/ActionBar.cpp
   src/app/widgets/ActionBar.h
+  src/app/widgets/WindowPickerButton.cpp
+  src/app/widgets/WindowPickerButton.h
 )
 
 add_executable(ClickFlowProductShellTests
@@ -251,6 +253,8 @@ set(SHELL_PAGE_SOURCES
   src/app/pages/ClickSettingsPage.h
   src/app/pages/HotkeySettingsPage.cpp
   src/app/pages/HotkeySettingsPage.h
+  src/app/pages/MacroRecordingPage.cpp
+  src/app/pages/MacroRecordingPage.h
   src/app/pages/PresetsAboutPage.cpp
   src/app/pages/PresetsAboutPage.h
 )
@@ -260,6 +264,8 @@ target_sources(QtClicker PRIVATE ${SHELL_WIDGET_SOURCES} ${SHELL_PAGE_SOURCES})
 add_executable(ClickFlowPageTests
   tests/ClickFlowPageTests.cpp
   ${SHELL_PAGE_SOURCES}
+  src/app/widgets/WindowPickerButton.cpp
+  src/app/widgets/WindowPickerButton.h
 )
 target_include_directories(ClickFlowPageTests PRIVATE src)
 target_link_libraries(ClickFlowPageTests PRIVATE QtClickerCore Qt6::Test Qt6::Widgets)

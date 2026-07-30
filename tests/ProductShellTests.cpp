@@ -9,22 +9,25 @@ class ProductShellTests : public QObject {
   Q_OBJECT
 
  private slots:
-  void sidebarHasThreeProductPages();
+  void sidebarHasFourProductPages();
   void persistentRegionsExposeState();
 };
 
-void ProductShellTests::sidebarHasThreeProductPages() {
+void ProductShellTests::sidebarHasFourProductPages() {
   QCoreApplication::setApplicationVersion("0.2.0");
   NavigationSidebar sidebar;
   QSignalSpy spy(&sidebar, &NavigationSidebar::pageSelected);
 
-  QCOMPARE(sidebar.pageCount(), 3);
+  QCOMPARE(sidebar.pageCount(), 4);
   QCOMPARE(sidebar.productName(), QString("ClickFlow"));
   QCOMPARE(sidebar.versionText(), QString("0.2.0"));
 
   sidebar.setCurrentPage(ShellPage::Hotkeys);
   QCOMPARE(sidebar.currentPage(), ShellPage::Hotkeys);
   QCOMPARE(spy.count(), 1);
+
+  sidebar.setCurrentPage(ShellPage::MacroRecording);
+  QCOMPARE(sidebar.currentPage(), ShellPage::MacroRecording);
 }
 
 void ProductShellTests::persistentRegionsExposeState() {

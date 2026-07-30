@@ -7,8 +7,9 @@ class QListWidget;
 
 enum class ShellPage {
   ClickSettings = 0,
-  Hotkeys = 1,
-  PresetsAbout = 2
+  MacroRecording = 1,
+  Hotkeys = 2,
+  PresetsAbout = 3
 };
 Q_DECLARE_METATYPE(ShellPage)
 

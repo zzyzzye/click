@@ -11,6 +11,7 @@
 class ActionBar;
 class ClickSettingsPage;
 class HotkeySettingsPage;
+class MacroRecordingPage;
 class NavigationSidebar;
 class PresetsAboutPage;
 class QStackedWidget;
@@ -64,6 +65,7 @@ class MainWindow : public QMainWindow {
   QStackedWidget* pages_ = nullptr;
   ClickSettingsPage* clickPage_ = nullptr;
   HotkeySettingsPage* hotkeyPage_ = nullptr;
+  MacroRecordingPage* macroPage_ = nullptr;
   PresetsAboutPage* presetsPage_ = nullptr;
   ActionBar* actionBar_ = nullptr;
   QString currentProfileName_ = "Default";

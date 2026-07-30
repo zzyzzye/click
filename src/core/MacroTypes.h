@@ -72,6 +72,7 @@ struct MacroSequence {
 };
 
 Q_DECLARE_METATYPE(MacroEvent)
+Q_DECLARE_METATYPE(MacroPlaybackSettings)
 Q_DECLARE_METATYPE(WindowTarget)
 Q_DECLARE_METATYPE(MacroSequence)
 

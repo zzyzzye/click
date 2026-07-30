@@ -17,6 +17,7 @@
 
 #include "app/pages/ClickSettingsPage.h"
 #include "app/pages/HotkeySettingsPage.h"
+#include "app/pages/MacroRecordingPage.h"
 #include "app/pages/PresetsAboutPage.h"
 #include "app/widgets/ActionBar.h"
 #include "app/widgets/NavigationSidebar.h"
@@ -124,6 +125,8 @@ void MainWindow::buildUi() {
   pages_ = new QStackedWidget(content);
   pages_->setObjectName("contentPages");
   clickPage_ = new ClickSettingsPage(pages_);
+  macroPage_ = new MacroRecordingPage(pages_);
+  macroPage_->setSupported(false, "键鼠录制服务正在初始化。");
   hotkeyPage_ = new HotkeySettingsPage(pages_);
   presetsPage_ = new PresetsAboutPage(pages_);
   const auto addScrollablePage = [this](QWidget* page) {
@@ -137,6 +140,7 @@ void MainWindow::buildUi() {
     pages_->addWidget(scroll);
   };
   addScrollablePage(clickPage_);
+  addScrollablePage(macroPage_);
   addScrollablePage(hotkeyPage_);
   addScrollablePage(presetsPage_);
   actionBar_ = new ActionBar(content);

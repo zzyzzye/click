@@ -10,6 +10,7 @@ struct MacroRecordingOptions {
   WindowTarget target;
   QStringList reservedHotkeys;
 };
+Q_DECLARE_METATYPE(MacroRecordingOptions)
 
 class MacroRecorder : public QObject {
   Q_OBJECT

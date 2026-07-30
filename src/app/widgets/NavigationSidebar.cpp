@@ -31,6 +31,7 @@ NavigationSidebar::NavigationSidebar(QWidget* parent) : QFrame(parent) {
     ShellPage page;
   } items[] = {
       {"连点设置", ShellPage::ClickSettings},
+      {"键鼠录制", ShellPage::MacroRecording},
       {"热键", ShellPage::Hotkeys},
       {"预设与关于", ShellPage::PresetsAbout},
   };

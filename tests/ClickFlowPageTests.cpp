@@ -1,8 +1,13 @@
 #include <QTest>
 #include <QKeySequenceEdit>
+#include <QComboBox>
+#include <QLabel>
+#include <QPushButton>
+#include <QSignalSpy>
 
 #include "app/pages/ClickSettingsPage.h"
 #include "app/pages/HotkeySettingsPage.h"
+#include "app/pages/MacroRecordingPage.h"
 #include "app/pages/PresetsAboutPage.h"
 
 class ClickFlowPageTests : public QObject {
@@ -12,6 +17,7 @@ class ClickFlowPageTests : public QObject {
   void clickSettingsRoundTrip();
   void hotkeysRoundTripAndValidate();
   void presetsAndAboutExposeProductState();
+  void macroPageKeepsHotkeysVisibleAndEmitsSettings();
 };
 
 void ClickFlowPageTests::clickSettingsRoundTrip() {
@@ -91,6 +97,76 @@ void ClickFlowPageTests::presetsAndAboutExposeProductState() {
   QCOMPARE(page.versionText(), QString("0.2.0"));
   QVERIFY(!page.platformText().isEmpty());
   QVERIFY(!page.qtVersionText().isEmpty());
+}
+
+void ClickFlowPageTests::macroPageKeepsHotkeysVisibleAndEmitsSettings() {
+  MacroRecordingPage page;
+  HotkeyBindings hotkeys;
+  hotkeys.macroRecord = "Ctrl+F9";
+  hotkeys.macroPlayback = "Ctrl+F10";
+  hotkeys.emergencyStop = "Ctrl+F8";
+  page.setHotkeys(hotkeys, true);
+
+  auto* recordHotkey = page.findChild<QLabel*>("macroRecordHotkeyLabel");
+  auto* playbackHotkey = page.findChild<QLabel*>("macroPlaybackHotkeyLabel");
+  auto* emergencyHotkey = page.findChild<QLabel*>("macroEmergencyHotkeyLabel");
+  QVERIFY(recordHotkey);
+  QVERIFY(playbackHotkey);
+  QVERIFY(emergencyHotkey);
+  QVERIFY(recordHotkey->text().contains("Ctrl+F9"));
+  QVERIFY(playbackHotkey->text().contains("Ctrl+F10"));
+  QVERIFY(emergencyHotkey->text().contains("Ctrl+F8"));
+
+  WindowTarget target;
+  target.nativeId = 42;
+  target.title = "目标窗口";
+  target.executablePath = "C:/Apps/target.exe";
+  target.className = "TargetWindow";
+  target.clientSize = QSize(800, 600);
+  page.setAvailableWindows({target});
+  auto* targetMode = page.findChild<QComboBox*>("macroTargetModeCombo");
+  auto* windowCombo = page.findChild<QComboBox*>("macroWindowCombo");
+  QVERIFY(targetMode);
+  QVERIFY(windowCombo);
+  targetMode->setCurrentIndex(
+      targetMode->findData(static_cast<int>(MacroTargetMode::Window)));
+  QVERIFY(windowCombo->isEnabled());
+
+  QSignalSpy recordSpy(&page, &MacroRecordingPage::recordRequested);
+  auto* recordButton = page.findChild<QPushButton*>("macroRecordButton");
+  QVERIFY(recordButton);
+  recordButton->click();
+  QCOMPARE(recordSpy.count(), 1);
+  const auto options =
+      qvariant_cast<MacroRecordingOptions>(recordSpy.first().first());
+  QCOMPARE(options.targetMode, MacroTargetMode::Window);
+  QCOMPARE(options.target.nativeId, quintptr(42));
+  QCOMPARE(options.reservedHotkeys,
+           QStringList({"Ctrl+F9", "Ctrl+F10", "Ctrl+F8"}));
+
+  MacroSequence sequence;
+  sequence.id = "macro-1";
+  sequence.name = "演示宏";
+  sequence.createdAt = QDateTime::currentDateTimeUtc();
+  sequence.modifiedAt = sequence.createdAt;
+  sequence.durationUs = 1000;
+  MacroEvent event;
+  event.type = MacroEventType::KeyDown;
+  sequence.events.append(event);
+  page.setMacros({sequence}, sequence.id);
+  QSignalSpy playSpy(&page, &MacroRecordingPage::playRequested);
+  auto* playButton = page.findChild<QPushButton*>("macroPlayButton");
+  QVERIFY(playButton);
+  playButton->click();
+  QCOMPARE(playSpy.count(), 1);
+  QCOMPARE(playSpy.first().at(0).toString(), sequence.id);
+
+  page.setActivity(MacroPageActivity::Recording);
+  QVERIFY(recordHotkey->isVisibleTo(&page));
+  QVERIFY(playbackHotkey->isVisibleTo(&page));
+  QVERIFY(emergencyHotkey->isVisibleTo(&page));
+  QCOMPARE(recordButton->text(), QString("停止录制"));
+  QVERIFY(!playButton->isEnabled());
 }
 
 QTEST_MAIN(ClickFlowPageTests)

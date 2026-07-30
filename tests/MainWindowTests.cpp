@@ -220,8 +220,8 @@ void MainWindowTests::usesPersistentClickFlowShell() {
   QVERIFY(status);
   QVERIFY(actions);
   QVERIFY(pages);
-  QCOMPARE(sidebar->pageCount(), 3);
-  QCOMPARE(pages->count(), 3);
+  QCOMPARE(sidebar->pageCount(), 4);
+  QCOMPARE(pages->count(), 4);
   for (int index = 0; index < pages->count(); ++index) {
     auto* scroll = qobject_cast<QScrollArea*>(pages->widget(index));
     QVERIFY(scroll);
