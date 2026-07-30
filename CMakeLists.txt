@@ -408,4 +408,14 @@ if(WIN32)
     ENVIRONMENT_MODIFICATION
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
   )
+
+  find_program(CLICKFLOW_POWERSHELL_EXECUTABLE NAMES pwsh powershell REQUIRED)
+  add_test(
+    NAME WindowsReleaseTools
+    COMMAND
+      "${CLICKFLOW_POWERSHELL_EXECUTABLE}"
+      -NoProfile
+      -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/WindowsReleaseTools.Tests.ps1"
+  )
 endif()
