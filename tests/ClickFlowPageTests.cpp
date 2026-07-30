@@ -1,14 +1,20 @@
 #include <QTest>
+#include <QCheckBox>
 #include <QKeySequenceEdit>
 #include <QComboBox>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QSignalSpy>
+#include <QSpinBox>
+#include <QWidget>
 
 #include "app/pages/ClickSettingsPage.h"
 #include "app/pages/HotkeySettingsPage.h"
 #include "app/pages/MacroRecordingPage.h"
 #include "app/pages/PresetsAboutPage.h"
+
+QString clickFlowStyleSheet();
 
 class ClickFlowPageTests : public QObject {
   Q_OBJECT
@@ -18,6 +24,8 @@ class ClickFlowPageTests : public QObject {
   void hotkeysRoundTripAndValidate();
   void presetsAndAboutExposeProductState();
   void macroPageKeepsHotkeysVisibleAndEmitsSettings();
+  void controlsUseConsistentComfortableHeights();
+  void hotkeyActivationIsExplicit();
 };
 
 void ClickFlowPageTests::clickSettingsRoundTrip() {
@@ -167,6 +175,70 @@ void ClickFlowPageTests::macroPageKeepsHotkeysVisibleAndEmitsSettings() {
   QVERIFY(emergencyHotkey->isVisibleTo(&page));
   QCOMPARE(recordButton->text(), QString("停止录制"));
   QVERIFY(!playButton->isEnabled());
+}
+
+void ClickFlowPageTests::controlsUseConsistentComfortableHeights() {
+  QWidget host;
+  host.setStyleSheet(clickFlowStyleSheet());
+  auto* layout = new QHBoxLayout(&host);
+
+  auto* standardButton = new QPushButton("普通操作", &host);
+  auto* combo = new QComboBox(&host);
+  combo->addItem("选项");
+  auto* spinBox = new QSpinBox(&host);
+  auto* editor = new QKeySequenceEdit(&host);
+  auto* macroPage = new MacroRecordingPage(&host);
+  macroPage->setSupported(true);
+  layout->addWidget(standardButton);
+  layout->addWidget(combo);
+  layout->addWidget(spinBox);
+  layout->addWidget(editor);
+  layout->addWidget(macroPage);
+
+  host.ensurePolished();
+  for (auto* widget : host.findChildren<QWidget*>()) widget->ensurePolished();
+  const auto effectiveHeight = [](QWidget* widget) {
+    return qBound(widget->minimumHeight(), widget->sizeHint().height(),
+                  widget->maximumHeight());
+  };
+
+  QCOMPARE(effectiveHeight(standardButton), 40);
+  QCOMPARE(effectiveHeight(combo), 40);
+  QCOMPARE(effectiveHeight(spinBox), 40);
+  QCOMPARE(effectiveHeight(editor), 40);
+
+  auto* recordButton =
+      macroPage->findChild<QPushButton*>("macroRecordButton");
+  auto* playButton =
+      macroPage->findChild<QPushButton*>("macroPlayButton");
+  QVERIFY(recordButton);
+  QVERIFY(playButton);
+  QCOMPARE(effectiveHeight(recordButton), 44);
+  QCOMPARE(effectiveHeight(playButton), 44);
+}
+
+void ClickFlowPageTests::hotkeyActivationIsExplicit() {
+  HotkeySettingsPage page;
+  auto* toggle =
+      page.findChild<QCheckBox*>("globalHotkeysEnabledCheck");
+  auto* status =
+      page.findChild<QLabel*>("globalHotkeysStatusLabel");
+
+  QVERIFY(toggle);
+  QVERIFY(status);
+  QVERIFY(!toggle->isChecked());
+  QCOMPARE(status->text(), QString("当前未占用任何系统热键"));
+  QVERIFY(!status->styleSheet().contains("#b42318"));
+
+  QSignalSpy activationSpy(&page,
+                           &HotkeySettingsPage::activationRequested);
+  toggle->click();
+  QCOMPARE(activationSpy.count(), 1);
+  QCOMPARE(activationSpy.takeFirst().at(0).toBool(), true);
+
+  page.setActivationState(false, "启用失败");
+  QVERIFY(!page.activationEnabled());
+  QCOMPARE(status->text(), QString("启用失败"));
 }
 
 QTEST_MAIN(ClickFlowPageTests)

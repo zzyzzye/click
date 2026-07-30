@@ -74,11 +74,13 @@ set(APP_SOURCES
   src/app/main.cpp
   src/app/MainWindow.cpp
   src/app/AppIdentity.cpp
+  src/app/UiStyle.cpp
 )
 
 set(APP_HEADERS
   src/app/MainWindow.h
   src/app/AppIdentity.h
+  src/app/UiStyle.h
   src/app/ClickFlow.manifest
   src/platform/PlatformServices.h
 )
@@ -278,6 +280,8 @@ target_sources(QtClicker PRIVATE ${SHELL_WIDGET_SOURCES} ${SHELL_PAGE_SOURCES})
 add_executable(ClickFlowPageTests
   tests/ClickFlowPageTests.cpp
   ${SHELL_PAGE_SOURCES}
+  src/app/UiStyle.cpp
+  src/app/UiStyle.h
   src/app/widgets/WindowPickerButton.cpp
   src/app/widgets/WindowPickerButton.h
 )
@@ -372,6 +376,8 @@ if(WIN32)
     tests/MainWindowTests.cpp
     src/app/MainWindow.cpp
     src/app/MainWindow.h
+    src/app/UiStyle.cpp
+    src/app/UiStyle.h
     ${SHELL_WIDGET_SOURCES}
     ${SHELL_PAGE_SOURCES}
     src/platform/windows/WindowsInputApi.cpp
@@ -418,4 +424,26 @@ if(WIN32)
       -ExecutionPolicy Bypass
       -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/WindowsReleaseTools.Tests.ps1"
   )
+endif()
+
+if(APPLE)
+  add_executable(QtClickerMainWindowTests
+    tests/MainWindowTests.cpp
+    src/app/MainWindow.cpp
+    src/app/MainWindow.h
+    src/app/UiStyle.cpp
+    src/app/UiStyle.h
+    ${SHELL_WIDGET_SOURCES}
+    ${SHELL_PAGE_SOURCES}
+    ${PLATFORM_SOURCES}
+  )
+  target_include_directories(QtClickerMainWindowTests PRIVATE src)
+  target_link_libraries(QtClickerMainWindowTests PRIVATE
+    QtClickerCore
+    Qt6::Test
+    Qt6::Widgets
+    "-framework ApplicationServices"
+    "-framework Carbon"
+  )
+  add_test(NAME MainWindow COMMAND QtClickerMainWindowTests)
 endif()

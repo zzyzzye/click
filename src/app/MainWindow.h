@@ -58,6 +58,7 @@ class MainWindow : public QMainWindow {
   void handleRunningChanged(bool running);
   void handleCountdownChanged(int seconds);
   void handleRemainingClicksChanged(int remaining);
+  void handleHotkeyActivationRequested(bool enabled);
   void handleMacroRecordRequested(const MacroRecordingOptions& options);
   void handleMacroPlayRequested(const QString& macroId,
                                 const MacroPlaybackSettings& settings);
@@ -77,6 +78,8 @@ class MainWindow : public QMainWindow {
   void updatePermissionBanner();
   void applyWindowOnTop(bool enabled);
   bool validateHotkeys(const ClickProfile& profile, QString* errorMessage) const;
+  bool tryEnableGlobalHotkeys(const ClickProfile& profile);
+  void disableGlobalHotkeys(const QString& status);
   QString selectedProfileName() const;
   void refreshMacroList(const QString& selectedId = {});
   void refreshMacroWindows(quintptr selectedNativeId = 0);
@@ -104,4 +107,6 @@ class MainWindow : public QMainWindow {
   PresetsAboutPage* presetsPage_ = nullptr;
   ActionBar* actionBar_ = nullptr;
   QString currentProfileName_ = "Default";
+  bool globalHotkeysEnabled_ = false;
+  QString lastHotkeyRegistrationError_;
 };

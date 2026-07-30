@@ -21,6 +21,7 @@
 #include "app/pages/HotkeySettingsPage.h"
 #include "app/pages/MacroRecordingPage.h"
 #include "app/pages/PresetsAboutPage.h"
+#include "app/UiStyle.h"
 #include "app/widgets/ActionBar.h"
 #include "app/widgets/NavigationSidebar.h"
 #include "app/widgets/StatusStrip.h"
@@ -139,11 +140,25 @@ MainWindow::MainWindow(
     const ClickProfile profile = collectProfileFromUi();
     QString error;
     const bool valid = validateHotkeys(profile, &error);
-    const bool registered = valid && hotkeyService_->registerHotkeys(profile);
-    macroPage_->setHotkeys(profile.hotkeys, registered);
-    if (registered) settingsRepository_->saveLastUsedProfile(profile);
-    else if (!valid) macroPage_->setError(error);
+    if (!valid) {
+      macroPage_->setError(error);
+      if (globalHotkeysEnabled_) {
+        disableGlobalHotkeys(QString("热键无效：%1").arg(error));
+      }
+      return;
+    }
+
+    settingsRepository_->saveLastUsedProfile(profile);
+    if (globalHotkeysEnabled_) {
+      tryEnableGlobalHotkeys(profile);
+    } else {
+      macroPage_->setHotkeys(profile.hotkeys, false);
+      hotkeyPage_->setActivationState(
+          false, "当前未占用任何系统热键");
+    }
   });
+  connect(hotkeyPage_, &HotkeySettingsPage::activationRequested, this,
+          &MainWindow::handleHotkeyActivationRequested);
 
   connect(presetsPage_, &PresetsAboutPage::newRequested, this, &MainWindow::handleNewPreset);
   connect(presetsPage_, &PresetsAboutPage::saveRequested, this, &MainWindow::handleSavePreset);
@@ -192,7 +207,9 @@ MainWindow::MainWindow(
                                           macroPage_->playbackSettings());
           });
   connect(hotkeyService_.get(), &HotkeyService::registrationFailed, this,
-          [this](const QString& message) { QMessageBox::warning(this, "热键注册失败", message); });
+          [this](const QString& message) {
+            lastHotkeyRegistrationError_ = message;
+          });
 
   ClickProfile profile;
   if (const auto saved = settingsRepository_->loadLastUsedProfile(); saved.has_value())
@@ -200,8 +217,8 @@ MainWindow::MainWindow(
   applyProfileToUi(profile);
   refreshPresetList(profile.name);
   updatePermissionBanner();
-  const bool hotkeysRegistered = hotkeyService_->registerHotkeys(collectProfileFromUi());
-  macroPage_->setHotkeys(profile.hotkeys, hotkeysRegistered);
+  hotkeyPage_->setActivationState(false, "当前未占用任何系统热键");
+  macroPage_->setHotkeys(profile.hotkeys, false);
   refreshMacroList();
   refreshMacroWindows();
 }
@@ -257,83 +274,12 @@ void MainWindow::buildUi() {
   setWindowTitle("ClickFlow");
   setMinimumSize(820, 560);
   resize(920, 620);
-  setStyleSheet(R"(
-    QMainWindow, #contentSurface { background: #f4f5f7; color: #18202b; }
-    #navigationSidebar { background: #e9ecf1; border-right: 1px solid #d4d9e1; }
-    #productName { font-size: 22px; font-weight: 700; color: #14213d; }
-    #productVersion { color: #6b7280; }
-    #sidebarNavigation {
-      background: transparent; border: none; outline: none;
-    }
-    #sidebarNavigation::item { border-radius: 8px; padding-left: 12px; }
-    #sidebarNavigation::item:selected { background: #2563eb; color: white; }
-    #settingsCard, #statusStrip, #actionBar {
-      background: white; border: 1px solid #dfe3e8; border-radius: 10px;
-    }
-    #cardTitle { font-size: 16px; font-weight: 650; }
-    QPushButton#startStopButton {
-      background: #2563eb; color: white; border: 0; border-radius: 8px;
-      padding: 10px 22px; font-weight: 650;
-    }
-    QPushButton#startStopButton[running="true"] { background: #dc2626; }
-    QComboBox, QSpinBox, QKeySequenceEdit {
-      min-height: 30px; border: 1px solid #cfd5dd; border-radius: 7px;
-      background: white; padding: 2px 34px 2px 10px;
-    }
-    QComboBox:hover, QSpinBox:hover, QKeySequenceEdit:hover {
-      border-color: #9eabc0;
-    }
-    QComboBox:focus, QSpinBox:focus, QKeySequenceEdit:focus {
-      border: 1px solid #2563eb;
-    }
-    QComboBox::drop-down {
-      subcontrol-origin: padding; subcontrol-position: top right;
-      width: 30px; margin: 3px; border: none; border-radius: 5px;
-    }
-    QComboBox::drop-down:hover { background: #edf3ff; }
-    QComboBox::down-arrow {
-      image: url(:/clickflow/icons/chevron-down.svg);
-      width: 12px; height: 8px;
-    }
-    QSpinBox { padding-right: 32px; }
-    QSpinBox::up-button, QSpinBox::down-button {
-      subcontrol-origin: border; width: 28px;
-      border: none; background: transparent;
-    }
-    QSpinBox::up-button {
-      subcontrol-position: top right; margin: 3px 3px 0 0;
-      border-top-left-radius: 5px; border-top-right-radius: 5px;
-    }
-    QSpinBox::down-button {
-      subcontrol-position: bottom right; margin: 0 3px 3px 0;
-      border-bottom-left-radius: 5px; border-bottom-right-radius: 5px;
-    }
-    QSpinBox::up-button:hover, QSpinBox::down-button:hover {
-      background: #edf3ff;
-    }
-    QSpinBox::up-button:pressed, QSpinBox::down-button:pressed {
-      background: #dce8ff;
-    }
-    QSpinBox::up-arrow {
-      image: url(:/clickflow/icons/chevron-up.svg);
-      width: 10px; height: 6px;
-    }
-    QSpinBox::down-arrow {
-      image: url(:/clickflow/icons/chevron-down.svg);
-      width: 10px; height: 6px;
-    }
-    QComboBox:disabled, QSpinBox:disabled, QKeySequenceEdit:disabled {
-      color: #8a94a3; background: #f5f6f8;
-    }
-  )");
+  setStyleSheet(clickFlowStyleSheet());
 }
 
 void MainWindow::handleStartStop() {
   if (controller_.isRunning()) { controller_.stop(); return; }
-  QString error;
   ClickProfile profile = collectProfileFromUi();
-  if (!validateHotkeys(profile, &error)) { QMessageBox::warning(this, "热键设置无效", error); return; }
-  if (!hotkeyService_->registerHotkeys(profile)) return;
   settingsRepository_->saveLastUsedProfile(profile);
   controller_.start(profile);
 }
@@ -364,8 +310,13 @@ void MainWindow::handleLoadPreset() {
   if (const auto p = settingsRepository_->loadProfile(selectedProfileName()); p.has_value()) {
     applyProfileToUi(*p);
     settingsRepository_->saveLastUsedProfile(*p);
-    const bool registered = hotkeyService_->registerHotkeys(*p);
-    macroPage_->setHotkeys(p->hotkeys, registered);
+    if (globalHotkeysEnabled_) {
+      tryEnableGlobalHotkeys(*p);
+    } else {
+      hotkeyPage_->setActivationState(
+          false, "当前未占用任何系统热键");
+      macroPage_->setHotkeys(p->hotkeys, false);
+    }
   }
 }
 void MainWindow::handleProfileSelectionChanged() {}
@@ -380,6 +331,48 @@ void MainWindow::handleStatusChanged(const QString& status) { statusStrip_->setS
 void MainWindow::handleRunningChanged(bool running) { updateRunningUi(running); }
 void MainWindow::handleCountdownChanged(int seconds) { statusStrip_->setProgress(seconds > 0 ? QString("倒计时 %1 秒").arg(seconds) : "就绪"); }
 void MainWindow::handleRemainingClicksChanged(int remaining) { statusStrip_->setProgress(remaining < 0 ? "剩余次数：无限" : QString("剩余 %1 次").arg(remaining)); }
+void MainWindow::handleHotkeyActivationRequested(bool enabled) {
+  if (!enabled) {
+    disableGlobalHotkeys("当前未占用任何系统热键");
+    return;
+  }
+  tryEnableGlobalHotkeys(collectProfileFromUi());
+}
+
+bool MainWindow::tryEnableGlobalHotkeys(const ClickProfile& profile) {
+  QString error;
+  if (!validateHotkeys(profile, &error)) {
+    disableGlobalHotkeys(QString("热键无效：%1").arg(error));
+    macroPage_->setError(error);
+    return false;
+  }
+
+  lastHotkeyRegistrationError_.clear();
+  globalHotkeysEnabled_ = false;
+  if (!hotkeyService_->registerHotkeys(profile)) {
+    const QString reason = lastHotkeyRegistrationError_.isEmpty()
+                               ? QString("一个或多个热键不可用")
+                               : lastHotkeyRegistrationError_;
+    disableGlobalHotkeys(QString("启用失败：%1").arg(reason));
+    macroPage_->setError(reason);
+    return false;
+  }
+
+  globalHotkeysEnabled_ = true;
+  hotkeyPage_->setActivationState(true, "全局热键已启用");
+  macroPage_->setHotkeys(profile.hotkeys, true);
+  macroPage_->setError({});
+  settingsRepository_->saveLastUsedProfile(profile);
+  return true;
+}
+
+void MainWindow::disableGlobalHotkeys(const QString& status) {
+  hotkeyService_->unregisterAll();
+  globalHotkeysEnabled_ = false;
+  hotkeyPage_->setActivationState(false, status);
+  macroPage_->setHotkeys(collectProfileFromUi().hotkeys, false);
+}
+
 void MainWindow::handleMacroRecordRequested(const MacroRecordingOptions& options) {
   if (!macroServices_.recorder || !macroRepository_) {
     macroPage_->setError("键鼠录制服务不可用。");

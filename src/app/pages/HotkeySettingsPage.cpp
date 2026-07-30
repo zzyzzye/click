@@ -1,4 +1,5 @@
 #include "app/pages/HotkeySettingsPage.h"
+#include <QCheckBox>
 #include <QFrame>
 #include <QFormLayout>
 #include <QKeySequenceEdit>
@@ -12,6 +13,11 @@ HotkeySettingsPage::HotkeySettingsPage(QWidget* parent) : QWidget(parent) {
   auto* layout = new QFormLayout(card);
   auto* title = new QLabel("全局热键", card); title->setObjectName("cardTitle");
   layout->addRow(title);
+  activation_ = new QCheckBox("启用全局热键", card);
+  activation_->setObjectName("globalHotkeysEnabledCheck");
+  activationStatus_ = new QLabel("当前未占用任何系统热键", card);
+  activationStatus_->setObjectName("globalHotkeysStatusLabel");
+  layout->addRow(activation_, activationStatus_);
   startStop_ = new QKeySequenceEdit(card); capture_ = new QKeySequenceEdit(card);
   emergency_ = new QKeySequenceEdit(card);
   macroRecord_ = new QKeySequenceEdit(card);
@@ -29,6 +35,9 @@ HotkeySettingsPage::HotkeySettingsPage(QWidget* parent) : QWidget(parent) {
     connect(editor, &QKeySequenceEdit::keySequenceChanged, this,
             [this] { emit hotkeysChanged(); });
   }
+  connect(activation_, &QCheckBox::toggled, this,
+          &HotkeySettingsPage::activationRequested);
+  setActivationState(false, "当前未占用任何系统热键");
 }
 void HotkeySettingsPage::setProfile(const ClickProfile& p) {
   const QSignalBlocker blockStart(startStop_);
@@ -80,4 +89,27 @@ bool HotkeySettingsPage::validate(const ClickProfile& profile, QString* error) c
   }
   return true;
 }
-void HotkeySettingsPage::setEditingEnabled(bool enabled) { setEnabled(enabled); }
+void HotkeySettingsPage::setEditingEnabled(bool enabled) {
+  for (auto* editor :
+       {startStop_, capture_, emergency_, macroRecord_, macroPlayback_}) {
+    editor->setEnabled(enabled);
+  }
+}
+
+void HotkeySettingsPage::setActivationState(bool enabled,
+                                            const QString& status) {
+  const QSignalBlocker blocker(activation_);
+  activation_->setChecked(enabled);
+  activationStatus_->setText(status);
+  if (enabled) {
+    activationStatus_->setStyleSheet("color: #247a4d;");
+  } else if (status.contains("失败") || status.contains("无效")) {
+    activationStatus_->setStyleSheet("color: #b42318;");
+  } else {
+    activationStatus_->setStyleSheet("color: #6b7280;");
+  }
+}
+
+bool HotkeySettingsPage::activationEnabled() const {
+  return activation_->isChecked();
+}

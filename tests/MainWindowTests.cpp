@@ -20,8 +20,10 @@
 #include "core/MacroRepository.h"
 #include "core/WindowService.h"
 #include "platform/PlatformServices.h"
+#if defined(Q_OS_WIN)
 #include "platform/windows/WindowsClickBackend.h"
 #include "platform/windows/WindowsHotkeyService.h"
+#endif
 #include "app/widgets/ActionBar.h"
 #include "app/widgets/NavigationSidebar.h"
 #include "app/widgets/StatusStrip.h"
@@ -54,15 +56,22 @@ class MainWindowFakeHotkeyService final : public HotkeyService {
  public:
   using HotkeyService::HotkeyService;
 
-  bool registerHotkeys(const ClickProfile&) override {
-    return true;
+  bool registerHotkeys(const ClickProfile& profile) override {
+    ++registerCount;
+    lastRegisteredProfile = profile;
+    return registrationResult;
   }
 
-  void unregisterAll() override {}
+  void unregisterAll() override { ++unregisterCount; }
 
   QString backendName() const override {
     return "Fake";
   }
+
+  bool registrationResult = true;
+  int registerCount = 0;
+  int unregisterCount = 0;
+  ClickProfile lastRegisteredProfile;
 };
 
 class MainWindowFakeWindowService final : public WindowService {
@@ -124,7 +133,9 @@ class MainWindowTests : public QObject {
   Q_OBJECT
 
  private slots:
+#if defined(Q_OS_WIN)
   void windowsFactoriesCreateNativeServices();
+#endif
   void availableInputHidesPermissionRequest();
   void loadedProfileRoundTripsThroughStart();
   void modeControlsFollowProfileChoices();
@@ -133,8 +144,12 @@ class MainWindowTests : public QObject {
   void controlChevronResourcesAreAvailable();
   void usesClickFlowControlChrome();
   void macroServicesRecordPersistAndReplay();
+  void startsWithGlobalHotkeysDisabled();
+  void globalHotkeysRequireManualActivation();
+  void registrationFailureReturnsActivationToOff();
 };
 
+#if defined(Q_OS_WIN)
 void MainWindowTests::windowsFactoriesCreateNativeServices() {
   auto backend = createClickBackend();
   auto hotkeys = createHotkeyService();
@@ -146,6 +161,7 @@ void MainWindowTests::windowsFactoriesCreateNativeServices() {
   QVERIFY(macros.recorder);
   QVERIFY(macros.player);
 }
+#endif
 
 void MainWindowTests::availableInputHidesPermissionRequest() {
   const QString appName =
@@ -371,6 +387,71 @@ void MainWindowTests::macroServicesRecordPersistAndReplay() {
   playButton->click();
   QTRY_COMPARE_WITH_TIMEOUT(observedPlayer->injected.size(), 2, 500);
   QCOMPARE(observedPlayer->prepared.id, saved.first().id);
+}
+
+void MainWindowTests::startsWithGlobalHotkeysDisabled() {
+  const QString appName =
+      QString("QtClickerHotkeyLifecycleTest-%1")
+          .arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  auto hotkeys = std::make_unique<MainWindowFakeHotkeyService>();
+  auto* observedHotkeys = hotkeys.get();
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::move(hotkeys), std::move(repository));
+
+  auto* toggle =
+      window.findChild<QCheckBox*>("globalHotkeysEnabledCheck");
+  auto* startButton =
+      window.findChild<QPushButton*>("startStopButton");
+  QVERIFY(toggle);
+  QVERIFY(startButton);
+  QVERIFY(!toggle->isChecked());
+  QCOMPARE(observedHotkeys->registerCount, 0);
+
+  startButton->click();
+  QCOMPARE(observedHotkeys->registerCount, 0);
+}
+
+void MainWindowTests::globalHotkeysRequireManualActivation() {
+  const QString appName =
+      QString("QtClickerHotkeyLifecycleTest-%1")
+          .arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  auto hotkeys = std::make_unique<MainWindowFakeHotkeyService>();
+  auto* observedHotkeys = hotkeys.get();
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::move(hotkeys), std::move(repository));
+
+  auto* toggle =
+      window.findChild<QCheckBox*>("globalHotkeysEnabledCheck");
+  QVERIFY(toggle);
+  toggle->click();
+  QCOMPARE(observedHotkeys->registerCount, 1);
+  QVERIFY(toggle->isChecked());
+
+  toggle->click();
+  QCOMPARE(observedHotkeys->unregisterCount, 1);
+  QVERIFY(!toggle->isChecked());
+}
+
+void MainWindowTests::registrationFailureReturnsActivationToOff() {
+  const QString appName =
+      QString("QtClickerHotkeyLifecycleTest-%1")
+          .arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  auto hotkeys = std::make_unique<MainWindowFakeHotkeyService>();
+  hotkeys->registrationResult = false;
+  auto* observedHotkeys = hotkeys.get();
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::move(hotkeys), std::move(repository));
+
+  auto* toggle =
+      window.findChild<QCheckBox*>("globalHotkeysEnabledCheck");
+  QVERIFY(toggle);
+  toggle->click();
+  QCOMPARE(observedHotkeys->registerCount, 1);
+  QVERIFY(observedHotkeys->unregisterCount >= 1);
+  QVERIFY(!toggle->isChecked());
 }
 
 QTEST_MAIN(MainWindowTests)

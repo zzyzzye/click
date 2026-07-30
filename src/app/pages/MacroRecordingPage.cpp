@@ -172,10 +172,6 @@ MacroRecordingPage::MacroRecordingPage(QWidget* parent) : QWidget(parent) {
       font-weight: 600;
     }
     #macroErrorLabel { color: #b42318; }
-    #macroRecordButton { background: #2563eb; color: white; font-weight: 650;
-      border: 0; border-radius: 8px; padding: 9px 18px; }
-    #macroPlayButton { background: #173b66; color: white; font-weight: 650;
-      border: 0; border-radius: 8px; padding: 9px 18px; }
   )");
 
   connect(targetMode_, &QComboBox::currentIndexChanged, this,
