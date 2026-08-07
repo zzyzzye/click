@@ -9,7 +9,6 @@
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMessageBox>
-#include <QScrollArea>
 #include <QStackedWidget>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -24,6 +23,7 @@
 #include "app/UiStyle.h"
 #include "app/widgets/ActionBar.h"
 #include "app/widgets/NavigationSidebar.h"
+#include "app/widgets/SmoothScrollArea.h"
 #include "app/widgets/StatusStrip.h"
 #include "core/ClickBackend.h"
 #include "core/HotkeyService.h"
@@ -252,7 +252,7 @@ void MainWindow::buildUi() {
   hotkeyPage_ = new HotkeySettingsPage(pages_);
   presetsPage_ = new PresetsAboutPage(pages_);
   const auto addScrollablePage = [this](QWidget* page) {
-    auto* scroll = new QScrollArea(pages_);
+    auto* scroll = new SmoothScrollArea(pages_);
     scroll->setWidgetResizable(true);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);

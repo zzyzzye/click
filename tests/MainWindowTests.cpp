@@ -309,7 +309,7 @@ void MainWindowTests::usesPersistentClickFlowShell() {
   QCOMPARE(sidebar->pageCount(), 4);
   QCOMPARE(pages->count(), 4);
   for (int index = 0; index < pages->count(); ++index) {
-    auto* scroll = qobject_cast<QScrollArea*>(pages->widget(index));
+    auto* scroll = dynamic_cast<SmoothScrollArea*>(pages->widget(index));
     QVERIFY(scroll);
     QVERIFY(scroll->widgetResizable());
     QCOMPARE(scroll->horizontalScrollBarPolicy(), Qt::ScrollBarAlwaysOff);
