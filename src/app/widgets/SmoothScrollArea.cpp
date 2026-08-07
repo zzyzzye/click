@@ -26,12 +26,16 @@ SmoothScrollArea::SmoothScrollArea(QWidget* parent) : QScrollArea(parent) {
 }
 
 void SmoothScrollArea::wheelEvent(QWheelEvent* event) {
-  const int delta = verticalDelta(event);
-  if (delta == 0 || std::abs(event->angleDelta().x()) > std::abs(event->angleDelta().y())) {
+  if (!scrollForWheelEvent(*event)) {
     QScrollArea::wheelEvent(event);
-    return;
   }
+}
 
+bool SmoothScrollArea::scrollForWheelEvent(const QWheelEvent& event) {
+  const int delta = verticalDelta(&event);
+  if (delta == 0 || std::abs(event.angleDelta().x()) > std::abs(event.angleDelta().y())) {
+    return false;
+  }
   QScrollBar* const bar = verticalScrollBar();
   const int start = bar->value();
   const int target = std::clamp(start - delta, bar->minimum(), bar->maximum());
@@ -41,5 +45,5 @@ void SmoothScrollArea::wheelEvent(QWheelEvent* event) {
     scrollAnimation_->setEndValue(target);
     scrollAnimation_->start();
   }
-  event->accept();
+  return true;
 }

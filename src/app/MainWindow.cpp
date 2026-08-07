@@ -12,6 +12,7 @@
 #include <QStackedWidget>
 #include <QUrl>
 #include <QVBoxLayout>
+#include <QWheelEvent>
 
 #include <utility>
 #include <algorithm>
@@ -36,10 +37,18 @@ class IgnoreWheelChangeFilter final : public QObject {
 
  protected:
   bool eventFilter(QObject* watched, QEvent* event) override {
-    if (event->type() == QEvent::Wheel &&
-        (qobject_cast<QComboBox*>(watched) || qobject_cast<QAbstractSpinBox*>(watched))) {
+    if (event->type() != QEvent::Wheel) return QObject::eventFilter(watched, event);
+
+    if (auto* combo = qobject_cast<QComboBox*>(watched)) {
+      auto* scroll = combo->parentWidget();
+      while (scroll && !dynamic_cast<SmoothScrollArea*>(scroll)) scroll = scroll->parentWidget();
+      if (auto* const area = dynamic_cast<SmoothScrollArea*>(scroll)) {
+        area->scrollForWheelEvent(*static_cast<QWheelEvent*>(event));
+      }
       return true;
     }
+
+    if (qobject_cast<QAbstractSpinBox*>(watched)) return true;
     return QObject::eventFilter(watched, event);
   }
 };

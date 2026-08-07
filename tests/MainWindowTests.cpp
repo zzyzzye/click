@@ -148,6 +148,7 @@ class MainWindowTests : public QObject {
   void usesClickFlowControlChrome();
   void smoothScrollUsesContinuousWheelTarget();
   void smoothScrollClampsAtBoundaries();
+  void wheelOverComboScrollsTheSettingsPage();
   void macroServicesRecordPersistAndReplay();
   void startsWithGlobalHotkeysDisabled();
   void globalHotkeysRequireManualActivation();
@@ -388,6 +389,36 @@ void MainWindowTests::smoothScrollClampsAtBoundaries() {
                    Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
   QVERIFY(QCoreApplication::sendEvent(scroll.viewport(), &down));
   QTRY_COMPARE_WITH_TIMEOUT(bar->value(), bar->maximum(), 500);
+}
+
+void MainWindowTests::wheelOverComboScrollsTheSettingsPage() {
+  const QString appName =
+      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::make_unique<MainWindowFakeHotkeyService>(),
+                    std::move(repository));
+  window.resize(820, 560);
+  window.show();
+  QCoreApplication::processEvents();
+
+  auto* pages = window.findChild<QStackedWidget*>("contentPages");
+  auto* combo = window.findChild<QComboBox*>("targetModeCombo");
+  QVERIFY(pages);
+  QVERIFY(combo);
+  auto* scroll = dynamic_cast<SmoothScrollArea*>(pages->currentWidget());
+  QVERIFY(scroll);
+  auto* bar = scroll->verticalScrollBar();
+  QVERIFY(bar->maximum() > 0);
+  bar->setValue(bar->minimum());
+  const int selectedIndex = combo->currentIndex();
+
+  QWheelEvent event(combo->rect().center(), combo->mapToGlobal(combo->rect().center()),
+                    QPoint(), QPoint(0, -120), Qt::NoButton, Qt::NoModifier,
+                    Qt::NoScrollPhase, false);
+  QVERIFY(QCoreApplication::sendEvent(combo, &event));
+  QTRY_VERIFY_WITH_TIMEOUT(bar->value() > bar->minimum(), 500);
+  QCOMPARE(combo->currentIndex(), selectedIndex);
 }
 
 void MainWindowTests::macroServicesRecordPersistAndReplay() {
