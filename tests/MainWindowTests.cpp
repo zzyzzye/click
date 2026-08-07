@@ -4,11 +4,13 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QTest>
 #include <QTemporaryDir>
 #include <QUuid>
+#include <QWheelEvent>
 
 #include <memory>
 
@@ -26,6 +28,7 @@
 #endif
 #include "app/widgets/ActionBar.h"
 #include "app/widgets/NavigationSidebar.h"
+#include "app/widgets/SmoothScrollArea.h"
 #include "app/widgets/StatusStrip.h"
 
 class MainWindowFakeClickBackend final : public ClickBackend {
@@ -143,6 +146,8 @@ class MainWindowTests : public QObject {
   void usesPersistentClickFlowShell();
   void controlChevronResourcesAreAvailable();
   void usesClickFlowControlChrome();
+  void smoothScrollUsesContinuousWheelTarget();
+  void smoothScrollClampsAtBoundaries();
   void macroServicesRecordPersistAndReplay();
   void startsWithGlobalHotkeysDisabled();
   void globalHotkeysRequireManualActivation();
@@ -333,6 +338,56 @@ void MainWindowTests::usesClickFlowControlChrome() {
   QVERIFY(style.contains(":/clickflow/icons/chevron-up.svg"));
   QVERIFY(compactStyle.contains(
       "#sidebarNavigation { background: transparent; border: none;"));
+}
+
+void MainWindowTests::smoothScrollUsesContinuousWheelTarget() {
+  SmoothScrollArea scroll;
+  auto* content = new QWidget;
+  content->setFixedSize(200, 1000);
+  scroll.setWidget(content);
+  scroll.resize(200, 200);
+  scroll.show();
+  QCoreApplication::processEvents();
+
+  auto* bar = scroll.verticalScrollBar();
+  QVERIFY(bar->maximum() > 100);
+
+  QWheelEvent first(QPointF(40, 40), QPointF(40, 40), QPoint(), QPoint(0, -120),
+                    Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+  QVERIFY(QCoreApplication::sendEvent(scroll.viewport(), &first));
+  QVERIFY(first.isAccepted());
+  QTRY_COMPARE_WITH_TIMEOUT(bar->value(), 37, 500);
+
+  QWheelEvent second(QPointF(40, 40), QPointF(40, 40), QPoint(0, -19), QPoint(),
+                     Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+  QVERIFY(QCoreApplication::sendEvent(scroll.viewport(), &second));
+  QVERIFY(second.isAccepted());
+  QTRY_COMPARE_WITH_TIMEOUT(bar->value(), 56, 500);
+}
+
+void MainWindowTests::smoothScrollClampsAtBoundaries() {
+  SmoothScrollArea scroll;
+  auto* content = new QWidget;
+  content->setFixedSize(200, 1000);
+  scroll.setWidget(content);
+  scroll.resize(200, 200);
+  scroll.show();
+  QCoreApplication::processEvents();
+
+  auto* bar = scroll.verticalScrollBar();
+  QVERIFY(bar->maximum() > 0);
+
+  bar->setValue(bar->minimum());
+  QWheelEvent up(QPointF(40, 40), QPointF(40, 40), QPoint(), QPoint(0, 120),
+                 Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+  QVERIFY(QCoreApplication::sendEvent(scroll.viewport(), &up));
+  QTRY_COMPARE_WITH_TIMEOUT(bar->value(), bar->minimum(), 500);
+
+  bar->setValue(bar->maximum());
+  QWheelEvent down(QPointF(40, 40), QPointF(40, 40), QPoint(), QPoint(0, -120),
+                   Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+  QVERIFY(QCoreApplication::sendEvent(scroll.viewport(), &down));
+  QTRY_COMPARE_WITH_TIMEOUT(bar->value(), bar->maximum(), 500);
 }
 
 void MainWindowTests::macroServicesRecordPersistAndReplay() {
