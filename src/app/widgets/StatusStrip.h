@@ -3,6 +3,7 @@
 #include <QFrame>
 
 class QLabel;
+class QPushButton;
 
 class StatusStrip final : public QFrame {
   Q_OBJECT
@@ -17,8 +18,12 @@ class StatusStrip final : public QFrame {
   QString statusText() const;
   QString progressText() const;
 
+ signals:
+  void permissionRequestRequested();
+
  private:
   QLabel* permissionLabel_ = nullptr;
+  QPushButton* permissionButton_ = nullptr;
   QLabel* statusLabel_ = nullptr;
   QLabel* progressLabel_ = nullptr;
 };

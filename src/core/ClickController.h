@@ -21,12 +21,14 @@ class ClickController : public QObject {
 
   bool isRunning() const;
   int remainingClicks() const;
+  int clicksExecuted() const;
   QString currentStatus() const;
 
  signals:
   void statusChanged(const QString& status);
   void runningChanged(bool running);
   void remainingClicksChanged(int remaining);
+  void clicksExecutedChanged(int executed);
   void countdownChanged(int remainingSeconds);
   void startRejected(const QString& reason);
 
@@ -57,6 +59,7 @@ class ClickController : public QObject {
   State state_ = State::Idle;
   QString status_ = "Idle";
   int remainingClicks_ = -1;
+  int clicksExecuted_ = 0;
   int countdownRemaining_ = 0;
   bool running_ = false;
   bool ownsAutomation_ = false;

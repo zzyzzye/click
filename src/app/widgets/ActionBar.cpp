@@ -9,7 +9,7 @@ ActionBar::ActionBar(QWidget* parent) : QFrame(parent) {
   auto* layout = new QHBoxLayout(this);
   layout->setContentsMargins(16, 12, 16, 12);
   summaryLabel_ = new QLabel(this);
-  hintLabel_ = new QLabel("F8 紧急停止", this);
+  hintLabel_ = new QLabel(this);
   startStopButton_ = new QPushButton("开始连点", this);
   startStopButton_->setObjectName("startStopButton");
   startStopButton_->setMinimumWidth(150);
@@ -18,6 +18,11 @@ ActionBar::ActionBar(QWidget* parent) : QFrame(parent) {
   layout->addWidget(startStopButton_);
   connect(startStopButton_, &QPushButton::clicked, this,
           &ActionBar::startStopRequested);
+}
+
+void ActionBar::setHotkeys(const HotkeyBindings& hotkeys) {
+  hintLabel_->setText(QString("启动：%1　停止：%2").arg(hotkeys.startStop, hotkeys.emergencyStop));
+  hintLabel_->setToolTip("也可以在“热键”页面修改快捷键。紧急停止会立即停止连点和宏回放。");
 }
 
 void ActionBar::setRunning(bool running) {

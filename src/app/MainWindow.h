@@ -2,6 +2,9 @@
 
 #include <QMainWindow>
 
+#include <QJsonObject>
+#include <QUrl>
+
 #include <memory>
 #include <functional>
 #include <optional>
@@ -20,6 +23,7 @@ class NavigationSidebar;
 class PresetsAboutPage;
 class QStackedWidget;
 class StatusStrip;
+class QNetworkAccessManager;
 
 class MainWindow : public QMainWindow {
   Q_OBJECT
@@ -58,6 +62,7 @@ class MainWindow : public QMainWindow {
   void handleRunningChanged(bool running);
   void handleCountdownChanged(int seconds);
   void handleRemainingClicksChanged(int remaining);
+  void handleClicksExecutedChanged(int executed);
   void handleHotkeyActivationRequested(bool enabled);
   void handleMacroRecordRequested(const MacroRecordingOptions& options);
   void handleMacroPlayRequested(const QString& macroId,
@@ -68,6 +73,7 @@ class MainWindow : public QMainWindow {
   void handleMacroRenameRequested(const QString& macroId);
   void handleMacroWindowPointSelected(const QPoint& globalPoint);
   void handleMacroStateChanged(MacroControllerState state);
+  void handleUpdateRequested();
 
  private:
   void buildUi();
@@ -85,6 +91,9 @@ class MainWindow : public QMainWindow {
   void refreshMacroWindows(quintptr selectedNativeId = 0);
   std::optional<MacroSequence> findMacro(const QString& id) const;
   bool confirmMacroSafety();
+  void checkForUpdates();
+  void checkForUpdatesFromReleasePage();
+  void downloadUpdate();
 
   std::unique_ptr<ClickBackend> backend_;
   std::unique_ptr<HotkeyService> hotkeyService_;
@@ -108,5 +117,12 @@ class MainWindow : public QMainWindow {
   ActionBar* actionBar_ = nullptr;
   QString currentProfileName_ = "Default";
   bool globalHotkeysEnabled_ = false;
+  int clicksExecuted_ = 0;
+  bool applyingProfile_ = false;
+  QNetworkAccessManager* updateNetwork_ = nullptr;
+  bool updateReady_ = false;
+  QString updateVersion_;
+  QUrl updateInstallerUrl_;
+  QUrl updateChecksumUrl_;
   QString lastHotkeyRegistrationError_;
 };

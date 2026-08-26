@@ -11,13 +11,15 @@ StatusStrip::StatusStrip(QWidget* parent) : QFrame(parent) {
   layout->setContentsMargins(16, 10, 16, 10);
   permissionLabel_ = new QLabel(this);
   permissionLabel_->setObjectName("permissionLabel");
-  auto* permissionButton = new QPushButton("打开权限设置", this);
-  permissionButton->setObjectName("permissionButton");
-  permissionButton->hide();
+  permissionButton_ = new QPushButton("打开权限设置", this);
+  permissionButton_->setObjectName("permissionButton");
+  permissionButton_->hide();
+  connect(permissionButton_, &QPushButton::clicked, this,
+          &StatusStrip::permissionRequestRequested);
   statusLabel_ = new QLabel("空闲", this);
   progressLabel_ = new QLabel("就绪", this);
   layout->addWidget(permissionLabel_);
-  layout->addWidget(permissionButton);
+  layout->addWidget(permissionButton_);
   layout->addStretch();
   layout->addWidget(statusLabel_);
   layout->addWidget(progressLabel_);
@@ -27,6 +29,7 @@ StatusStrip::StatusStrip(QWidget* parent) : QFrame(parent) {
 void StatusStrip::setPermissionState(bool available) {
   permissionLabel_->setText(available ? "输入控制权限：可用"
                                       : "输入控制权限：需要授权");
+  permissionButton_->setVisible(!available);
   setProperty("permissionAvailable", available);
   style()->unpolish(this);
   style()->polish(this);

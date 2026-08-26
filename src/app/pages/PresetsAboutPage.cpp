@@ -1,5 +1,6 @@
 #include "app/pages/PresetsAboutPage.h"
 #include <QCoreApplication>
+#include <QToolTip>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -28,7 +29,11 @@ PresetsAboutPage::PresetsAboutPage(QWidget* parent) : QWidget(parent) {
   platform_ = new QLabel("Unknown", about);
 #endif
   qt_ = new QLabel(qVersion(), about);
+  updateStatus_ = new QLabel("更新：尚未检查", about);
+  update_ = new QPushButton("检查更新", about);
   a->addWidget(product_); a->addWidget(version_); a->addWidget(platform_); a->addWidget(qt_);
+  a->addWidget(updateStatus_);
+  a->addWidget(update_);
   root->addWidget(about);
   connect(list_, &QListWidget::itemSelectionChanged, this, [this]{ updateActions(); emit selectionChanged(); });
   connect(new_, &QPushButton::clicked, this, &PresetsAboutPage::newRequested);
@@ -36,6 +41,7 @@ PresetsAboutPage::PresetsAboutPage(QWidget* parent) : QWidget(parent) {
   connect(rename_, &QPushButton::clicked, this, &PresetsAboutPage::renameRequested);
   connect(delete_, &QPushButton::clicked, this, &PresetsAboutPage::deleteRequested);
   connect(load_, &QPushButton::clicked, this, &PresetsAboutPage::loadRequested);
+  connect(update_, &QPushButton::clicked, this, &PresetsAboutPage::updateRequested);
   updateActions();
 }
 void PresetsAboutPage::setPresetNames(const QStringList& names, const QString& selected) {
@@ -50,4 +56,6 @@ QString PresetsAboutPage::versionText() const { return version_->text(); }
 QString PresetsAboutPage::platformText() const { return platform_->text(); }
 QString PresetsAboutPage::qtVersionText() const { return qt_->text(); }
 void PresetsAboutPage::setMutationEnabled(bool enabled) { new_->setEnabled(enabled); save_->setEnabled(enabled); rename_->setEnabled(enabled && list_->currentItem()); delete_->setEnabled(enabled && list_->currentItem()); load_->setEnabled(enabled && list_->currentItem()); }
+void PresetsAboutPage::setUpdateStatus(const QString& status) { updateStatus_->setText(status); }
+void PresetsAboutPage::setUpdateAction(const QString& text, bool enabled) { update_->setText(text); update_->setEnabled(enabled); }
 void PresetsAboutPage::updateActions() { const bool selected = list_->currentItem(); rename_->setEnabled(selected); delete_->setEnabled(selected); load_->setEnabled(selected); }

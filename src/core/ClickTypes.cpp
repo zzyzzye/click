@@ -71,16 +71,19 @@ ClickProfile fromVariantMap(const QVariantMap& data) {
   profile.countdownSeconds =
       data.value("countdownSeconds", profile.countdownSeconds).toInt();
   profile.alwaysOnTop = data.value("alwaysOnTop", profile.alwaysOnTop).toBool();
-  profile.hotkeys.startStop =
-      data.value("hotkeyStartStop", profile.hotkeys.startStop).toString();
+  const auto readHotkey = [&data](const char* key, const QString& fallback) {
+    const QString value = data.value(key).toString().trimmed();
+    return value.isEmpty() ? fallback : value;
+  };
+  profile.hotkeys.startStop = readHotkey("hotkeyStartStop", profile.hotkeys.startStop);
   profile.hotkeys.capturePoint =
-      data.value("hotkeyCapturePoint", profile.hotkeys.capturePoint).toString();
+      readHotkey("hotkeyCapturePoint", profile.hotkeys.capturePoint);
   profile.hotkeys.emergencyStop =
-      data.value("hotkeyEmergencyStop", profile.hotkeys.emergencyStop).toString();
+      readHotkey("hotkeyEmergencyStop", profile.hotkeys.emergencyStop);
   profile.hotkeys.macroRecord =
-      data.value("hotkeyMacroRecord", profile.hotkeys.macroRecord).toString();
+      readHotkey("hotkeyMacroRecord", profile.hotkeys.macroRecord);
   profile.hotkeys.macroPlayback =
-      data.value("hotkeyMacroPlayback", profile.hotkeys.macroPlayback).toString();
+      readHotkey("hotkeyMacroPlayback", profile.hotkeys.macroPlayback);
   return profile;
 }
 

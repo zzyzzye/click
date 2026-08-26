@@ -51,7 +51,9 @@ void ClickController::start(const ClickProfile& profile) {
   running_ = true;
   remainingClicks_ =
       activeProfile_.repeatMode == RepeatMode::Finite ? activeProfile_.repeatCount : -1;
+  clicksExecuted_ = 0;
   emit remainingClicksChanged(remainingClicks_);
+  emit clicksExecutedChanged(clicksExecuted_);
   emit runningChanged(true);
 
   if (activeProfile_.countdownSeconds > 0) {
@@ -86,6 +88,10 @@ bool ClickController::isRunning() const {
 
 int ClickController::remainingClicks() const {
   return remainingClicks_;
+}
+
+int ClickController::clicksExecuted() const {
+  return clicksExecuted_;
 }
 
 QString ClickController::currentStatus() const {
@@ -139,6 +145,9 @@ void ClickController::performClick() {
     finishRun(State::Error, activeProfile_.inputMode == InputMode::Keyboard ? "按键执行失败" : "点击执行失败");
     return;
   }
+
+  ++clicksExecuted_;
+  emit clicksExecutedChanged(clicksExecuted_);
 
   if (activeProfile_.repeatMode == RepeatMode::Finite) {
     remainingClicks_ = std::max(0, remainingClicks_ - 1);

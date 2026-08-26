@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(ClickFlow VERSION 0.4.0 LANGUAGES CXX)
+project(ClickFlow VERSION 0.5.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,7 +27,7 @@ if(APPLE)
   endforeach()
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network Test)
 
 set(CLICKFLOW_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 configure_file(
@@ -143,7 +143,7 @@ add_executable(QtClicker MACOSX_BUNDLE
 )
 
 target_include_directories(QtClicker PRIVATE src "${CLICKFLOW_GENERATED_DIR}")
-target_link_libraries(QtClicker PRIVATE QtClickerCore Qt6::Widgets)
+target_link_libraries(QtClicker PRIVATE QtClickerCore Qt6::Widgets Qt6::Network)
 set_target_properties(QtClicker PROPERTIES OUTPUT_NAME ClickFlow)
 
 if(APPLE)
@@ -407,6 +407,7 @@ if(WIN32)
     QtClickerCore
     Qt6::Test
     Qt6::Widgets
+    Qt6::Network
     user32
     dwmapi
   )

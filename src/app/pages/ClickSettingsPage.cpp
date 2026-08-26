@@ -42,12 +42,14 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   auto* basicCard = card("基础设置", this, &basic);
   interval_ = new QSpinBox(this);
   interval_->setRange(1, 600000); interval_->setSuffix(" 毫秒");
+  interval_->setToolTip("两次点击之间的时间，数值越小越快。");
   inputMode_ = new QComboBox(this);
   inputMode_->addItem("鼠标", int(InputMode::Mouse));
   inputMode_->addItem("键盘", int(InputMode::Keyboard));
   keyboardKey_ = new QKeySequenceEdit(this);
   keyboardKey_->setMaximumSequenceLength(1);
   keyboardKey_->setKeySequence(QKeySequence(Qt::Key_Space));
+  keyboardKey_->setToolTip("键盘模式下将重复发送这个按键。");
   button_ = new QComboBox(this);
   button_->addItem("左键", int(ClickButton::Left));
   button_->addItem("右键", int(ClickButton::Right));
@@ -63,6 +65,7 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   fixedY_ = new QSpinBox(this); fixedY_->setRange(-100000, 100000); fixedY_->setPrefix("Y ");
   fixedY_->setObjectName("fixedYSpin");
   capture_ = new QPushButton("捕获当前位置", this);
+  capture_->setToolTip("把当前鼠标位置填入固定坐标。");
   coordinateLayout->addWidget(fixedX_); coordinateLayout->addWidget(fixedY_);
   coordinateLayout->addWidget(capture_);
   addRow(basic, 0, "点击间隔", interval_);
@@ -82,7 +85,9 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   repeatCount_ = new QSpinBox(this); repeatCount_->setRange(1, 100000000);
   repeatCount_->setObjectName("repeatCountSpin");
   jitter_ = new QSpinBox(this); jitter_->setRange(0, 1000); jitter_->setSuffix(" 像素");
+  jitter_->setToolTip("每次点击在目标点附近随机偏移的半径，0 表示不偏移。");
   countdown_ = new QSpinBox(this); countdown_->setRange(0, 3600); countdown_->setSuffix(" 秒");
+  countdown_->setToolTip("点击开始后等待几秒再执行，0 表示立即开始。");
   alwaysOnTop_ = new QCheckBox("保持窗口置顶", this);
   addRow(behavior, 0, "重复方式", repeatMode_);
   addRow(behavior, 1, "点击次数", repeatCount_);
@@ -146,8 +151,25 @@ QString ClickSettingsPage::summary() const {
 void ClickSettingsPage::updateDependencies() {
   const bool keyboard = inputMode_->currentData().toInt() == int(InputMode::Keyboard);
   keyboardKey_->setEnabled(keyboard);
-  button_->setEnabled(!keyboard); targetMode_->setEnabled(!keyboard);
+  keyboardKey_->setToolTip(keyboard ? "键盘模式下将重复发送这个按键。"
+                                  : "选择“键盘”连点类型后可设置按键。");
+  button_->setEnabled(!keyboard);
+  button_->setToolTip(keyboard ? "键盘模式下不使用鼠标按键。" : "选择鼠标连点时使用的鼠标按键。");
+  targetMode_->setEnabled(!keyboard);
+  targetMode_->setToolTip(keyboard ? "键盘模式下不使用鼠标点击位置。"
+                                  : "选择跟随鼠标或固定坐标。");
   const bool fixed = targetMode_->currentData().toInt() == int(TargetMode::FixedPoint);
-  fixedX_->setEnabled(!keyboard && fixed); fixedY_->setEnabled(!keyboard && fixed); capture_->setEnabled(!keyboard && fixed);
-  repeatCount_->setEnabled(repeatMode_->currentData().toInt() == int(RepeatMode::Finite));
+  fixedX_->setEnabled(!keyboard && fixed);
+  fixedY_->setEnabled(!keyboard && fixed);
+  capture_->setEnabled(!keyboard && fixed);
+  const QString coordinateHint = keyboard ? "键盘模式下不使用固定坐标。"
+                                          : (fixed ? "设置固定点击位置，或点击“捕获当前位置”。"
+                                                  : "选择“固定坐标”后可设置目标位置。");
+  fixedX_->setToolTip(coordinateHint);
+  fixedY_->setToolTip(coordinateHint);
+  capture_->setToolTip(coordinateHint);
+  const bool finite = repeatMode_->currentData().toInt() == int(RepeatMode::Finite);
+  repeatCount_->setEnabled(finite);
+  repeatCount_->setToolTip(finite ? "设置需要执行的总次数。"
+                                  : "选择“有限次数”后可设置点击次数。");
 }

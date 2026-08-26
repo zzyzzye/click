@@ -2,6 +2,8 @@
 
 #include <QFrame>
 
+#include "core/ClickTypes.h"
+
 class QLabel;
 class QPushButton;
 
@@ -12,6 +14,7 @@ class ActionBar final : public QFrame {
   explicit ActionBar(QWidget* parent = nullptr);
 
   void setRunning(bool running);
+  void setHotkeys(const HotkeyBindings& hotkeys);
   void setSummary(const QString& summary);
   QString buttonText() const;
   QString summaryText() const;
