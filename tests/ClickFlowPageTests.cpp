@@ -13,8 +13,7 @@
 #include "app/pages/HotkeySettingsPage.h"
 #include "app/pages/MacroRecordingPage.h"
 #include "app/pages/PresetsAboutPage.h"
-
-QString clickFlowStyleSheet();
+#include "app/UiStyle.h"
 
 class ClickFlowPageTests : public QObject {
   Q_OBJECT

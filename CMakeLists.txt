@@ -116,6 +116,7 @@ elseif(WIN32)
     src/platform/windows/WindowsWindowApi.cpp
     src/platform/windows/WindowsWindowService.cpp
     src/platform/windows/PlatformServicesWindows.cpp
+    src/platform/windows/WindowsWindowStyle.cpp
   )
   list(APPEND APP_HEADERS
     src/platform/windows/WindowsInputApi.h
@@ -129,6 +130,7 @@ elseif(WIN32)
     src/platform/windows/WindowsMacroRecorder.h
     src/platform/windows/WindowsWindowApi.h
     src/platform/windows/WindowsWindowService.h
+    src/platform/windows/WindowsWindowStyle.h
   )
 else()
   message(FATAL_ERROR "QtClicker supports only macOS and Windows.")
@@ -152,6 +154,7 @@ if(APPLE)
     "-framework Carbon"
   )
 elseif(WIN32)
+  set_target_properties(QtClicker PROPERTIES WIN32_EXECUTABLE TRUE)
   target_link_libraries(QtClicker PRIVATE user32 dwmapi)
   target_link_options(QtClicker PRIVATE /MANIFEST:NO)
 endif()
@@ -374,6 +377,24 @@ if(WIN32)
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
   )
 
+  add_executable(WindowsWindowStyleTests
+    tests/WindowsWindowStyleTests.cpp
+    src/platform/windows/WindowsWindowStyle.cpp
+    src/platform/windows/WindowsWindowStyle.h
+  )
+  target_include_directories(WindowsWindowStyleTests PRIVATE src)
+  target_link_libraries(WindowsWindowStyleTests PRIVATE
+    Qt6::Core
+    Qt6::Widgets
+    Qt6::Test
+    dwmapi
+  )
+  add_test(NAME WindowsWindowStyle COMMAND WindowsWindowStyleTests)
+  set_tests_properties(WindowsWindowStyle PROPERTIES
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+
   add_executable(QtClickerMainWindowTests
     tests/MainWindowTests.cpp
     src/app/MainWindow.cpp
@@ -401,6 +422,8 @@ if(WIN32)
     src/platform/windows/WindowsWindowService.cpp
     src/platform/windows/WindowsWindowService.h
     src/platform/windows/PlatformServicesWindows.cpp
+    src/platform/windows/WindowsWindowStyle.cpp
+    src/platform/windows/WindowsWindowStyle.h
   )
   target_include_directories(QtClickerMainWindowTests PRIVATE src)
   target_link_libraries(QtClickerMainWindowTests PRIVATE

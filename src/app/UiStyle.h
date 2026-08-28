@@ -2,4 +2,4 @@
 
 #include <QString>
 
-QString clickFlowStyleSheet();
+QString clickFlowStyleSheet(bool translucent = false);

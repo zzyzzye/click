@@ -14,6 +14,7 @@
 #include "core/MacroRepository.h"
 #include "core/SettingsRepository.h"
 #include "platform/PlatformServices.h"
+#include "platform/WindowStyleService.h"
 
 class ActionBar;
 class ClickSettingsPage;
@@ -44,6 +45,7 @@ class MainWindow : public QMainWindow {
              std::unique_ptr<MacroRepository> macroRepository,
              MacroSafetyConfirmation safetyConfirmation,
              MacroNameProvider macroNameProvider,
+             std::unique_ptr<WindowStyleService> windowStyle,
              QWidget* parent = nullptr);
   ~MainWindow() override;
 
@@ -77,6 +79,7 @@ class MainWindow : public QMainWindow {
 
  private:
   void buildUi();
+  void showEvent(QShowEvent* event) override;
   void refreshPresetList(const QString& selectedName = {});
   void applyProfileToUi(const ClickProfile& profile);
   ClickProfile collectProfileFromUi() const;
@@ -105,6 +108,7 @@ class MainWindow : public QMainWindow {
   MacroController macroController_;
   MacroSafetyConfirmation safetyConfirmation_;
   MacroNameProvider macroNameProvider_;
+  std::unique_ptr<WindowStyleService> windowStyle_;
   QVector<MacroSequence> macros_;
 
   NavigationSidebar* sidebar_ = nullptr;

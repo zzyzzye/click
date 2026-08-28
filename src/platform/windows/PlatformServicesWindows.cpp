@@ -1,10 +1,12 @@
 #include "platform/PlatformServices.h"
 
+#include "platform/WindowStyleService.h"
 #include "platform/windows/WindowsClickBackend.h"
 #include "platform/windows/WindowsHotkeyService.h"
 #include "platform/windows/WindowsMacroPlayer.h"
 #include "platform/windows/WindowsMacroRecorder.h"
 #include "platform/windows/WindowsWindowService.h"
+#include "platform/windows/WindowsWindowStyle.h"
 
 std::unique_ptr<ClickBackend> createClickBackend() {
   return std::make_unique<WindowsClickBackend>();
@@ -24,4 +26,8 @@ MacroPlatformServices createMacroPlatformServices() {
       std::make_unique<WindowsMacroPlayer>(createNativeWindowsMacroInputApi(),
                                            services.windowService.get());
   return services;
+}
+
+std::unique_ptr<WindowStyleService> createWindowStyleService() {
+  return std::make_unique<WindowsWindowStyle>();
 }
