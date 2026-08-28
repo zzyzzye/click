@@ -152,6 +152,7 @@ if(APPLE)
     "-framework Carbon"
   )
 elseif(WIN32)
+  set_target_properties(QtClicker PROPERTIES WIN32_EXECUTABLE TRUE)
   target_link_libraries(QtClicker PRIVATE user32 dwmapi)
   target_link_options(QtClicker PRIVATE /MANIFEST:NO)
 endif()
@@ -370,6 +371,24 @@ if(WIN32)
   )
   add_test(NAME WindowsHotkeyMapping COMMAND QtClickerWindowsHotkeyTests)
   set_tests_properties(WindowsHotkeyMapping PROPERTIES
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+
+  add_executable(WindowsWindowStyleTests
+    tests/WindowsWindowStyleTests.cpp
+    src/platform/windows/WindowsWindowStyle.cpp
+    src/platform/windows/WindowsWindowStyle.h
+  )
+  target_include_directories(WindowsWindowStyleTests PRIVATE src)
+  target_link_libraries(WindowsWindowStyleTests PRIVATE
+    Qt6::Core
+    Qt6::Widgets
+    Qt6::Test
+    dwmapi
+  )
+  add_test(NAME WindowsWindowStyle COMMAND WindowsWindowStyleTests)
+  set_tests_properties(WindowsWindowStyle PROPERTIES
     ENVIRONMENT_MODIFICATION
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
   )
