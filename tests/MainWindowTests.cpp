@@ -456,7 +456,8 @@ void MainWindowTests::macroServicesRecordPersistAndReplay() {
       std::make_unique<MainWindowFakeHotkeyService>(), std::move(settings),
       std::move(macroServices), std::move(macros),
       [](QWidget*) { return true; },
-      [](QWidget*) { return QString("测试录制"); });
+      [](QWidget*) { return QString("测试录制"); },
+      {});
 
   auto* recordButton = window.findChild<QPushButton*>("macroRecordButton");
   auto* playButton = window.findChild<QPushButton*>("macroPlayButton");

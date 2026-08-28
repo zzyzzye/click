@@ -116,6 +116,7 @@ elseif(WIN32)
     src/platform/windows/WindowsWindowApi.cpp
     src/platform/windows/WindowsWindowService.cpp
     src/platform/windows/PlatformServicesWindows.cpp
+    src/platform/windows/WindowsWindowStyle.cpp
   )
   list(APPEND APP_HEADERS
     src/platform/windows/WindowsInputApi.h
@@ -129,6 +130,7 @@ elseif(WIN32)
     src/platform/windows/WindowsMacroRecorder.h
     src/platform/windows/WindowsWindowApi.h
     src/platform/windows/WindowsWindowService.h
+    src/platform/windows/WindowsWindowStyle.h
   )
 else()
   message(FATAL_ERROR "QtClicker supports only macOS and Windows.")

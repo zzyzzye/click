@@ -89,7 +89,8 @@ MainWindow::MainWindow(QWidget* parent)
     : MainWindow(createClickBackend(), createHotkeyService(),
                  std::make_unique<SettingsRepository>(),
                  createMacroPlatformServices(),
-                 std::make_unique<MacroRepository>(), {}, {}, parent) {}
+                 std::make_unique<MacroRepository>(), {}, {},
+                 createWindowStyleService(), parent) {}
 
 MainWindow::MainWindow(std::unique_ptr<ClickBackend> backend,
                        std::unique_ptr<HotkeyService> hotkeyService,
@@ -97,7 +98,7 @@ MainWindow::MainWindow(std::unique_ptr<ClickBackend> backend,
                        QWidget* parent)
     : MainWindow(std::move(backend), std::move(hotkeyService),
                  std::move(settingsRepository), MacroPlatformServices{}, nullptr,
-                 {}, {}, parent) {}
+                 {}, {}, {}, parent) {}
 
 MainWindow::MainWindow(
     std::unique_ptr<ClickBackend> backend,
@@ -106,7 +107,9 @@ MainWindow::MainWindow(
     MacroPlatformServices macroServices,
     std::unique_ptr<MacroRepository> macroRepository,
     MacroSafetyConfirmation safetyConfirmation,
-    MacroNameProvider macroNameProvider, QWidget* parent)
+    MacroNameProvider macroNameProvider,
+    std::unique_ptr<WindowStyleService> windowStyle,
+    QWidget* parent)
     : QMainWindow(parent),
       backend_(std::move(backend)),
       hotkeyService_(std::move(hotkeyService)),
@@ -118,8 +121,10 @@ MainWindow::MainWindow(
       macroController_(macroServices_.recorder.get(), macroServices_.player.get(),
                        &automationCoordinator_, this),
       safetyConfirmation_(std::move(safetyConfirmation)),
-      macroNameProvider_(std::move(macroNameProvider)) {
+      macroNameProvider_(std::move(macroNameProvider)),
+      windowStyle_(std::move(windowStyle)) {
   if (!safetyConfirmation_) safetyConfirmation_ = defaultMacroSafetyConfirmation;
+  if (!windowStyle_) windowStyle_ = createWindowStyleService();
   if (!macroNameProvider_) macroNameProvider_ = defaultMacroName;
   buildUi();
 
@@ -308,7 +313,13 @@ void MainWindow::buildUi() {
   setWindowTitle("ClickFlow");
   setMinimumSize(820, 560);
   resize(920, 620);
-  setStyleSheet(clickFlowStyleSheet());
+  setStyleSheet(clickFlowStyleSheet(windowStyle_->usesBackdrop()));
+  windowStyle_->prepare(this);
+}
+
+void MainWindow::showEvent(QShowEvent* event) {
+  QMainWindow::showEvent(event);
+  windowStyle_->apply(this);
 }
 
 namespace {
