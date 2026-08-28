@@ -15,6 +15,7 @@
 #include <memory>
 
 #include "app/MainWindow.h"
+#include "app/UiStyle.h"
 #include "core/ClickBackend.h"
 #include "core/HotkeyService.h"
 #include "core/MacroPlayer.h"
@@ -146,6 +147,7 @@ class MainWindowTests : public QObject {
   void usesPersistentClickFlowShell();
   void controlChevronResourcesAreAvailable();
   void usesClickFlowControlChrome();
+  void transparentStyleSheetKeepsCardsOpaque();
   void smoothScrollUsesContinuousWheelTarget();
   void smoothScrollClampsAtBoundaries();
   void wheelOverComboScrollsTheSettingsPage();
@@ -339,6 +341,16 @@ void MainWindowTests::usesClickFlowControlChrome() {
   QVERIFY(style.contains(":/clickflow/icons/chevron-up.svg"));
   QVERIFY(compactStyle.contains(
       "#sidebarNavigation { background: transparent; border: none;"));
+}
+
+void MainWindowTests::transparentStyleSheetKeepsCardsOpaque() {
+  const QString style = clickFlowStyleSheet(true);
+  const QString compact = style.simplified();
+  QVERIFY(compact.contains("QMainWindow, #contentSurface { background: transparent"));
+  QVERIFY(compact.contains("#contentPages { background: transparent"));
+  QVERIFY(compact.contains(
+      "#settingsCard, #statusStrip, #actionBar { background: white"));
+  QVERIFY(style.contains("QComboBox::down-arrow"));
 }
 
 void MainWindowTests::smoothScrollUsesContinuousWheelTarget() {

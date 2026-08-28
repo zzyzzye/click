@@ -1,8 +1,12 @@
 #include "app/UiStyle.h"
 
-QString clickFlowStyleSheet() {
+QString clickFlowStyleSheet(bool translucent) {
+  const char* surfaceBackground = translucent ? "transparent" : "#f4f5f7";
+  const char* contentBackground = translucent ? "transparent" : "#f4f5f7";
   return QStringLiteral(R"(
-    QMainWindow, #contentSurface { background: #f4f5f7; color: #18202b; }
+    QMainWindow, #contentSurface { background: %1; color: #18202b; }
+    #contentPages { background: %2; }
+    QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; }
     #navigationSidebar { background: #e9ecf1; border-right: 1px solid #d4d9e1; }
     #productName { font-size: 22px; font-weight: 700; color: #14213d; }
     #productVersion { color: #6b7280; }
@@ -105,5 +109,7 @@ QString clickFlowStyleSheet() {
     QComboBox:disabled, QSpinBox:disabled, QKeySequenceEdit:disabled {
       color: #8a94a3; background: #f5f6f8;
     }
-  )");
+  )")
+      .arg(QString::fromLatin1(surfaceBackground),
+           QString::fromLatin1(contentBackground));
 }

@@ -420,6 +420,8 @@ if(WIN32)
     src/platform/windows/WindowsWindowService.cpp
     src/platform/windows/WindowsWindowService.h
     src/platform/windows/PlatformServicesWindows.cpp
+    src/platform/windows/WindowsWindowStyle.cpp
+    src/platform/windows/WindowsWindowStyle.h
   )
   target_include_directories(QtClickerMainWindowTests PRIVATE src)
   target_link_libraries(QtClickerMainWindowTests PRIVATE
