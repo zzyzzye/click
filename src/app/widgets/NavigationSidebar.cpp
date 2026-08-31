@@ -5,6 +5,8 @@
 #include <QListWidget>
 #include <QVBoxLayout>
 
+#include "app/widgets/NavItemDelegate.h"
+
 NavigationSidebar::NavigationSidebar(QWidget* parent) : QFrame(parent) {
   setObjectName("navigationSidebar");
   setFixedWidth(184);
@@ -26,6 +28,7 @@ NavigationSidebar::NavigationSidebar(QWidget* parent) : QFrame(parent) {
   navigation_->setObjectName("sidebarNavigation");
   navigation_->setFrameShape(QFrame::NoFrame);
   navigation_->setSpacing(4);
+  navigation_->setItemDelegate(new NavItemDelegate(navigation_));
   const struct {
     QString label;
     ShellPage page;
@@ -38,7 +41,7 @@ NavigationSidebar::NavigationSidebar(QWidget* parent) : QFrame(parent) {
   for (const auto& item : items) {
     auto* row = new QListWidgetItem(item.label, navigation_);
     row->setData(Qt::UserRole, static_cast<int>(item.page));
-    row->setSizeHint(QSize(0, 42));
+    row->setSizeHint(QSize(0, 36));
   }
   layout->addWidget(navigation_, 1);
 

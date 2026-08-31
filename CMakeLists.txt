@@ -241,6 +241,8 @@ set(SHELL_WIDGET_SOURCES
   src/app/resources/ClickFlowResources.qrc
   src/app/widgets/NavigationSidebar.cpp
   src/app/widgets/NavigationSidebar.h
+  src/app/widgets/NavItemDelegate.cpp
+  src/app/widgets/NavItemDelegate.h
   src/app/widgets/StatusStrip.cpp
   src/app/widgets/StatusStrip.h
   src/app/widgets/SmoothScrollArea.cpp
@@ -253,6 +255,8 @@ set(SHELL_WIDGET_SOURCES
 
 add_executable(ClickFlowProductShellTests
   tests/ProductShellTests.cpp
+  src/app/UiStyle.cpp
+  src/app/UiStyle.h
   ${SHELL_WIDGET_SOURCES}
 )
 target_include_directories(ClickFlowProductShellTests PRIVATE
