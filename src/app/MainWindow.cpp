@@ -789,7 +789,16 @@ void MainWindow::updateRunningUi(bool running) {
   }
 }
 void MainWindow::updatePermissionBanner() { statusStrip_->setPermissionState(backend_->hasAccessibilityPermission()); }
-void MainWindow::applyWindowOnTop(bool enabled) { const bool shown = isVisible(); setWindowFlag(Qt::WindowStaysOnTopHint, enabled); if (shown) { show(); raise(); } }
+void MainWindow::applyWindowOnTop(bool enabled) {
+  const bool shown = isVisible();
+  setWindowFlag(Qt::WindowStaysOnTopHint, enabled);
+  if (shown) {
+    show();
+    raise();
+  }
+  // setWindowFlag 会销毁并重建 HWND，DWM 属性（圆角/Mica/框架扩展）随之丢失，必须重新应用。
+  windowStyle_->apply(this);
+}
 bool MainWindow::validateHotkeys(const ClickProfile& profile, QString* error) const { return hotkeyPage_->validate(profile, error); }
 QString MainWindow::selectedProfileName() const { return presetsPage_->selectedPresetName(); }
 

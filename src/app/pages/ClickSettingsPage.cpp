@@ -89,6 +89,7 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   countdown_ = new QSpinBox(this); countdown_->setRange(0, 3600); countdown_->setSuffix(" 秒");
   countdown_->setToolTip("点击开始后等待几秒再执行，0 表示立即开始。");
   alwaysOnTop_ = new QCheckBox("保持窗口置顶", this);
+  alwaysOnTop_->setObjectName("alwaysOnTopCheckBox");
   addRow(behavior, 0, "重复方式", repeatMode_);
   addRow(behavior, 1, "点击次数", repeatCount_);
   addRow(behavior, 2, "抖动半径", jitter_);

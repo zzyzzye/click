@@ -133,6 +133,15 @@ class MainWindowFakeMacroPlayer final : public MacroPlayer {
   QVector<MacroEvent> injected;
 };
 
+class MainWindowFakeWindowStyle final : public WindowStyleService {
+ public:
+  void prepare(QWidget*) override { ++prepareCount; }
+  void apply(QWidget*) override { ++applyCount; }
+  bool usesBackdrop() const override { return false; }
+  int prepareCount = 0;
+  int applyCount = 0;
+};
+
 class MainWindowTests : public QObject {
   Q_OBJECT
 
@@ -155,6 +164,7 @@ class MainWindowTests : public QObject {
   void startsWithGlobalHotkeysDisabled();
   void globalHotkeysRequireManualActivation();
   void registrationFailureReturnsActivationToOff();
+  void windowStyleReappliedAfterOnTopToggle();
 };
 
 #if defined(Q_OS_WIN)
@@ -551,6 +561,29 @@ void MainWindowTests::registrationFailureReturnsActivationToOff() {
   QCOMPARE(observedHotkeys->registerCount, 1);
   QVERIFY(observedHotkeys->unregisterCount >= 1);
   QVERIFY(!toggle->isChecked());
+}
+
+void MainWindowTests::windowStyleReappliedAfterOnTopToggle() {
+  const QString appName =
+      QString("QtClickerMainWindowStyleTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  auto windowStyle = std::make_unique<MainWindowFakeWindowStyle>();
+  auto* observed = windowStyle.get();
+
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::make_unique<MainWindowFakeHotkeyService>(),
+                    std::move(repository), MacroPlatformServices{}, nullptr,
+                    [](QWidget*) { return true; },
+                    [](QWidget*) { return QString("测试"); },
+                    std::move(windowStyle));
+
+  const int before = observed->applyCount;
+  auto* onTop = window.findChild<QCheckBox*>("alwaysOnTopCheckBox");
+  QVERIFY(onTop);
+  onTop->click();
+  QCOMPARE(observed->applyCount, before + 1);
+  onTop->click();
+  QCOMPARE(observed->applyCount, before + 2);
 }
 
 QTEST_MAIN(MainWindowTests)
