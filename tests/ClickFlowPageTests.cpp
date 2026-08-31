@@ -201,10 +201,11 @@ void ClickFlowPageTests::controlsUseConsistentComfortableHeights() {
                   widget->maximumHeight());
   };
 
-  QCOMPARE(effectiveHeight(standardButton), 40);
-  QCOMPARE(effectiveHeight(combo), 40);
-  QCOMPARE(effectiveHeight(spinBox), 40);
-  QCOMPARE(effectiveHeight(editor), 40);
+  // Fluent 规范：标准控件 32px 逻辑高度（含边距量得 34），全控件一致
+  QCOMPARE(effectiveHeight(standardButton), 34);
+  QCOMPARE(effectiveHeight(combo), 34);
+  QCOMPARE(effectiveHeight(spinBox), 34);
+  QCOMPARE(effectiveHeight(editor), 34);
 
   auto* recordButton =
       macroPage->findChild<QPushButton*>("macroRecordButton");
@@ -212,8 +213,9 @@ void ClickFlowPageTests::controlsUseConsistentComfortableHeights() {
       macroPage->findChild<QPushButton*>("macroPlayButton");
   QVERIFY(recordButton);
   QVERIFY(playButton);
-  QCOMPARE(effectiveHeight(recordButton), 44);
-  QCOMPARE(effectiveHeight(playButton), 44);
+  // Fluent 规范：主操作按钮 36px 逻辑高度（含边距量得 38）
+  QCOMPARE(effectiveHeight(recordButton), 38);
+  QCOMPARE(effectiveHeight(playButton), 38);
 }
 
 void ClickFlowPageTests::hotkeyActivationIsExplicit() {

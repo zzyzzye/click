@@ -269,6 +269,21 @@ if(WIN32)
   )
 endif()
 
+add_executable(ClickFlowUiStyleTests
+  tests/UiStyleTests.cpp
+  src/app/UiStyle.cpp
+  src/app/UiStyle.h
+)
+target_include_directories(ClickFlowUiStyleTests PRIVATE src)
+target_link_libraries(ClickFlowUiStyleTests PRIVATE Qt6::Test Qt6::Widgets)
+add_test(NAME UiStyle COMMAND ClickFlowUiStyleTests)
+if(WIN32)
+  set_tests_properties(UiStyle PROPERTIES
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+endif()
+
 set(SHELL_PAGE_SOURCES
   src/app/pages/ClickSettingsPage.cpp
   src/app/pages/ClickSettingsPage.h
