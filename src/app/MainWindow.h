@@ -17,6 +17,7 @@
 #include "platform/WindowStyleService.h"
 
 class ActionBar;
+class CaptionBar;
 class ClickSettingsPage;
 class HotkeySettingsPage;
 class MacroRecordingPage;
@@ -80,6 +81,9 @@ class MainWindow : public QMainWindow {
  private:
   void buildUi();
   void showEvent(QShowEvent* event) override;
+  bool nativeEvent(const QByteArray& eventType, void* message,
+                   qintptr* result) override;
+  void changeEvent(QEvent* event) override;
   void refreshPresetList(const QString& selectedName = {});
   void applyProfileToUi(const ClickProfile& profile);
   ClickProfile collectProfileFromUi() const;
@@ -112,6 +116,7 @@ class MainWindow : public QMainWindow {
   QVector<MacroSequence> macros_;
 
   NavigationSidebar* sidebar_ = nullptr;
+  CaptionBar* captionBar_ = nullptr;
   StatusStrip* statusStrip_ = nullptr;
   QStackedWidget* pages_ = nullptr;
   ClickSettingsPage* clickPage_ = nullptr;

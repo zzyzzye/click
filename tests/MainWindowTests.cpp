@@ -28,6 +28,7 @@
 #include "platform/windows/WindowsHotkeyService.h"
 #endif
 #include "app/widgets/ActionBar.h"
+#include "app/widgets/CaptionBar.h"
 #include "app/widgets/NavigationSidebar.h"
 #include "app/widgets/SmoothScrollArea.h"
 #include "app/widgets/StatusStrip.h"
@@ -165,6 +166,7 @@ class MainWindowTests : public QObject {
   void globalHotkeysRequireManualActivation();
   void registrationFailureReturnsActivationToOff();
   void windowStyleReappliedAfterOnTopToggle();
+  void immersiveCaptionIsInstalled();
 };
 
 #if defined(Q_OS_WIN)
@@ -584,6 +586,24 @@ void MainWindowTests::windowStyleReappliedAfterOnTopToggle() {
   QCOMPARE(observed->applyCount, before + 1);
   onTop->click();
   QCOMPARE(observed->applyCount, before + 2);
+}
+
+void MainWindowTests::immersiveCaptionIsInstalled() {
+  const QString appName =
+      QString("QtClickerMainWindowCaptionTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::make_unique<MainWindowFakeHotkeyService>(),
+                    std::move(repository));
+
+  auto* caption = window.findChild<CaptionBar*>();
+  QVERIFY(caption);
+  // 无边框走 WM_NCCALCSIZE 方案，不得使用 FramelessWindowHint
+  QVERIFY(!window.windowFlags().testFlag(Qt::FramelessWindowHint));
+  QCOMPARE(window.windowTitle(), QString("ClickFlow"));
+  QVERIFY(caption->findChild<QAbstractButton*>("captionMaximizeButton"));
+  QVERIFY(caption->findChild<QAbstractButton*>("captionMinimizeButton"));
+  QVERIFY(caption->findChild<QAbstractButton*>("captionCloseButton"));
 }
 
 QTEST_MAIN(MainWindowTests)

@@ -34,11 +34,18 @@
 #include "app/pages/PresetsAboutPage.h"
 #include "app/UiStyle.h"
 #include "app/widgets/ActionBar.h"
+#include "app/widgets/CaptionBar.h"
 #include "app/widgets/NavigationSidebar.h"
 #include "app/widgets/SmoothScrollArea.h"
 #include "app/widgets/StatusStrip.h"
 #include "core/ClickBackend.h"
 #include "core/HotkeyService.h"
+
+#if defined(Q_OS_WIN)
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#include <windowsx.h>
+#endif
 
 namespace {
 
@@ -137,6 +144,12 @@ MainWindow::MainWindow(
   }
 
   connect(actionBar_, &ActionBar::startStopRequested, this, &MainWindow::handleStartStop);
+  connect(captionBar_, &CaptionBar::minimizeRequested, this, &QWidget::showMinimized);
+  connect(captionBar_, &CaptionBar::maximizeRestoreRequested, this, [this] {
+    if (isMaximized()) showNormal();
+    else showMaximized();
+  });
+  connect(captionBar_, &CaptionBar::closeRequested, this, &QWidget::close);
   connect(clickPage_, &ClickSettingsPage::captureRequested, this, &MainWindow::handleCapturePoint);
   connect(clickPage_, &ClickSettingsPage::alwaysOnTopChanged, this, &MainWindow::applyWindowOnTop);
   connect(clickPage_, &ClickSettingsPage::settingsChanged, this,
@@ -265,15 +278,25 @@ MainWindow::MainWindow(
 MainWindow::~MainWindow() = default;
 
 void MainWindow::buildUi() {
+  setWindowTitle("ClickFlow");
+
   auto* central = new QWidget(this);
   setCentralWidget(central);
-  auto* shell = new QHBoxLayout(central);
+  auto* outer = new QVBoxLayout(central);
+  outer->setContentsMargins(0, 0, 0, 0);
+  outer->setSpacing(0);
+
+  captionBar_ = new CaptionBar(windowTitle(), central);
+  outer->addWidget(captionBar_);
+
+  auto* shellContainer = new QWidget(central);
+  auto* shell = new QHBoxLayout(shellContainer);
   shell->setContentsMargins(0, 0, 0, 0);
   shell->setSpacing(0);
-  sidebar_ = new NavigationSidebar(central);
+  sidebar_ = new NavigationSidebar(shellContainer);
   shell->addWidget(sidebar_);
 
-  auto* content = new QWidget(central);
+  auto* content = new QWidget(shellContainer);
   content->setObjectName("contentSurface");
   auto* layout = new QVBoxLayout(content);
   layout->setContentsMargins(20, 18, 20, 18);
@@ -309,8 +332,8 @@ void MainWindow::buildUi() {
   layout->addWidget(pages_, 1);
   layout->addWidget(actionBar_);
   shell->addWidget(content, 1);
+  outer->addWidget(shellContainer, 1);
 
-  setWindowTitle("ClickFlow");
   setMinimumSize(820, 560);
   resize(920, 620);
   setStyleSheet(clickFlowStyleSheet(windowStyle_->usesBackdrop()));
@@ -320,6 +343,98 @@ void MainWindow::buildUi() {
 void MainWindow::showEvent(QShowEvent* event) {
   QMainWindow::showEvent(event);
   windowStyle_->apply(this);
+}
+
+bool MainWindow::nativeEvent(const QByteArray& eventType, void* message,
+                             qintptr* result) {
+#if defined(Q_OS_WIN)
+  if (eventType == "windows_generic_MSG") {
+    auto* msg = static_cast<MSG*>(message);
+    switch (msg->message) {
+      case WM_NCCALCSIZE: {
+        if (msg->wParam == FALSE) break;  // 交给默认处理
+        // 返回 0：去掉非客户区，内容铺满窗口；DWM 原生圆角/阴影/Snap 保留。
+        if (IsZoomed(msg->hwnd)) {
+          // 最大化时按边框厚度内缩，避免盖住任务栏、边缘被裁剪。
+          auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(msg->lParam);
+          const UINT dpi = GetDpiForWindow(msg->hwnd);
+          const int frameX = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) +
+                             GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+          const int frameY = GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi) +
+                             GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+          params->rgrc[0].left += frameX;
+          params->rgrc[0].right -= frameX;
+          params->rgrc[0].top += frameY;
+          params->rgrc[0].bottom -= frameY;
+        }
+        *result = 0;
+        return true;
+      }
+      case WM_NCHITTEST: {
+        const POINT cursor{GET_X_LPARAM(msg->lParam), GET_Y_LPARAM(msg->lParam)};
+        // 最大化按钮命中：返回 HTMAXBUTTON 让 Win11 Snap Layouts 面板生效。
+        if (captionBar_) {
+          if (auto* maxButton =
+                  captionBar_->findChild<QAbstractButton*>("captionMaximizeButton")) {
+            const QPoint local =
+                maxButton->mapFromGlobal(QPoint(cursor.x, cursor.y));
+            if (maxButton->rect().contains(local)) {
+              *result = HTMAXBUTTON;
+              return true;
+            }
+          }
+        }
+        if (IsZoomed(msg->hwnd)) break;  // 最大化不提供边框调整
+        RECT windowRect{};
+        GetWindowRect(msg->hwnd, &windowRect);
+        const UINT dpi = GetDpiForWindow(msg->hwnd);
+        const int border = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) +
+                           GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+        const int x = cursor.x - windowRect.left;
+        const int y = cursor.y - windowRect.top;
+        const int width = windowRect.right - windowRect.left;
+        const int height = windowRect.bottom - windowRect.top;
+        const bool onLeft = x < border;
+        const bool onRight = x >= width - border;
+        const bool onTop = y < border;
+        const bool onBottom = y >= height - border;
+        if (onTop && onLeft) { *result = HTTOPLEFT; return true; }
+        if (onTop && onRight) { *result = HTTOPRIGHT; return true; }
+        if (onBottom && onLeft) { *result = HTBOTTOMLEFT; return true; }
+        if (onBottom && onRight) { *result = HTBOTTOMRIGHT; return true; }
+        if (onLeft) { *result = HTLEFT; return true; }
+        if (onRight) { *result = HTRIGHT; return true; }
+        if (onTop) { *result = HTTOP; return true; }
+        if (onBottom) { *result = HTBOTTOM; return true; }
+        break;
+      }
+      case WM_NCMOUSEMOVE: {
+        // HTMAXBUTTON 区域收不到普通 hover 事件，手动同步按钮悬停态。
+        if (captionBar_) {
+          if (auto* maxButton =
+                  captionBar_->findChild<QAbstractButton*>("captionMaximizeButton")) {
+            const POINT cursor{GET_X_LPARAM(msg->lParam), GET_Y_LPARAM(msg->lParam)};
+            const QPoint local =
+                maxButton->mapFromGlobal(QPoint(cursor.x, cursor.y));
+            captionBar_->setMaximizeButtonHovered(
+                maxButton->rect().contains(local));
+          }
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+#endif
+  return QMainWindow::nativeEvent(eventType, message, result);
+}
+
+void MainWindow::changeEvent(QEvent* event) {
+  QMainWindow::changeEvent(event);
+  if (event->type() == QEvent::WindowStateChange && captionBar_) {
+    captionBar_->setMaximized(isMaximized());
+  }
 }
 
 namespace {
