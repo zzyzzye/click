@@ -243,6 +243,8 @@ set(SHELL_WIDGET_SOURCES
   src/app/widgets/NavigationSidebar.h
   src/app/widgets/NavItemDelegate.cpp
   src/app/widgets/NavItemDelegate.h
+  src/app/widgets/CaptionBar.cpp
+  src/app/widgets/CaptionBar.h
   src/app/widgets/StatusStrip.cpp
   src/app/widgets/StatusStrip.h
   src/app/widgets/SmoothScrollArea.cpp

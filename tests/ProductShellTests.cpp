@@ -1,3 +1,4 @@
+#include <QAbstractButton>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPainter>
@@ -6,6 +7,7 @@
 
 #include "app/UiStyle.h"
 #include "app/widgets/ActionBar.h"
+#include "app/widgets/CaptionBar.h"
 #include "app/widgets/NavItemDelegate.h"
 #include "app/widgets/NavigationSidebar.h"
 #include "app/widgets/StatusStrip.h"
@@ -18,6 +20,7 @@ class ProductShellTests : public QObject {
   void persistentRegionsExposeState();
   void navDelegatePaintsFluentSelectionIndicator();
   void navDelegateUsesFluentRowHeight();
+  void captionBarExposesWindowControls();
 };
 
 void ProductShellTests::sidebarHasFourProductPages() {
@@ -82,6 +85,35 @@ void ProductShellTests::navDelegateUsesFluentRowHeight() {
   new QListWidgetItem(QStringLiteral("连点设置"), &list);
   QStyleOptionViewItem option;
   QCOMPARE(delegate->sizeHint(option, list.model()->index(0, 0)).height(), 36);
+}
+
+void ProductShellTests::captionBarExposesWindowControls() {
+  CaptionBar bar(QStringLiteral("ClickFlow"));
+  QCOMPARE(bar.sizeHint().height(), 32);
+
+  QSignalSpy minimizeSpy(&bar, &CaptionBar::minimizeRequested);
+  QSignalSpy maximizeSpy(&bar, &CaptionBar::maximizeRestoreRequested);
+  QSignalSpy closeSpy(&bar, &CaptionBar::closeRequested);
+
+  auto* minButton = bar.findChild<QAbstractButton*>("captionMinimizeButton");
+  auto* maxButton = bar.findChild<QAbstractButton*>("captionMaximizeButton");
+  auto* closeButton = bar.findChild<QAbstractButton*>("captionCloseButton");
+  QVERIFY(minButton);
+  QVERIFY(maxButton);
+  QVERIFY(closeButton);
+
+  minButton->click();
+  maxButton->click();
+  closeButton->click();
+  QCOMPARE(minimizeSpy.count(), 1);
+  QCOMPARE(maximizeSpy.count(), 1);
+  QCOMPARE(closeSpy.count(), 1);
+
+  QVERIFY(!bar.isMaximized());
+  bar.setMaximized(true);
+  QVERIFY(bar.isMaximized());
+  bar.setMaximizeButtonHovered(true);   // 不应崩溃（Task 6 的悬停同步入口）
+  bar.setMaximizeButtonHovered(false);
 }
 
 QTEST_MAIN(ProductShellTests)
