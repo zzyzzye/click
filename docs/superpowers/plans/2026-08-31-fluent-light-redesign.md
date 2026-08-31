@@ -227,7 +227,7 @@ void applyDwmAttribute(HWND handle, DWORD attribute, const void* value,
   const HRESULT result = DwmSetWindowAttribute(handle, attribute, value, size);
   if (FAILED(result)) {
     qWarning() << "DWM 设置失败:" << description
-               << "HRESULT =" << Qt::hex << static_cast<quulonglong>(result);
+               << "HRESULT =" << Qt::hex << result;
   }
 }
 
@@ -283,7 +283,7 @@ void WindowsWindowStyle::apply(QWidget* window) {
   const HRESULT marginsResult = DwmExtendFrameIntoClientArea(handle, &margins);
   if (FAILED(marginsResult)) {
     qWarning() << "DWM 框架扩展失败: HRESULT =" << Qt::hex
-               << static_cast<quulonglong>(marginsResult);
+               << marginsResult;
   }
 }
 ```

@@ -1,5 +1,6 @@
 #include "platform/windows/WindowsWindowStyle.h"
 
+#include <QDebug>
 #include <QString>
 #include <QWidget>
 
@@ -43,16 +44,17 @@ unsigned int currentBuildNumber() {
   return ok ? build : 0;
 }
 
-bool readAppsUseLightTheme() {
+// 系统「设置 → 个性化 → 颜色 → 透明效果」。关闭时 Windows 不绘制 Mica。
+bool readTransparencyEnabled() {
   HKEY key = nullptr;
   if (RegOpenKeyExW(HKEY_CURRENT_USER,
                     L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
                     0, KEY_READ, &key) != ERROR_SUCCESS) {
-    return true;  // 默认亮色
+    return true;  // 默认开启
   }
   DWORD value = 1;
   DWORD size = sizeof(value);
-  RegQueryValueExW(key, L"AppsUseLightTheme", nullptr, nullptr,
+  RegQueryValueExW(key, L"EnableTransparency", nullptr, nullptr,
                    reinterpret_cast<LPBYTE>(&value), &size);
   RegCloseKey(key);
   return value != 0;
@@ -62,43 +64,66 @@ HWND widgetHandle(const QWidget* widget) {
   return reinterpret_cast<HWND>(widget->winId());
 }
 
+void applyDwmAttribute(HWND handle, DWORD attribute, const void* value,
+                       DWORD size, const char* description) {
+  const HRESULT result = DwmSetWindowAttribute(handle, attribute, value, size);
+  if (FAILED(result)) {
+    qWarning() << "DWM 设置失败:" << description
+               << "HRESULT =" << Qt::hex << result;
+  }
+}
+
 }  // namespace
 
 bool isWindows11OrLater(unsigned int buildNumber) {
   return buildNumber >= 22000;
 }
 
+bool supportsSystemBackdrop(unsigned int buildNumber) {
+  return buildNumber >= 22621;
+}
+
+bool micaBackdropAvailable(unsigned int buildNumber, bool transparencyEnabled) {
+  return isWindows11OrLater(buildNumber) &&
+         supportsSystemBackdrop(buildNumber) && transparencyEnabled;
+}
+
+bool WindowsWindowStyle::usesBackdrop() const {
+  return micaBackdropAvailable(currentBuildNumber(), readTransparencyEnabled());
+}
+
 void WindowsWindowStyle::prepare(QWidget* window) {
   if (!window) return;
-  if (isWindows11OrLater(currentBuildNumber())) {
+  // 仅在 Mica 确定可用时才透明化窗口，否则透明区域会直接透出桌面。
+  if (usesBackdrop()) {
     window->setAttribute(Qt::WA_TranslucentBackground);
   }
 }
 
 void WindowsWindowStyle::apply(QWidget* window) {
   if (!window) return;
-  if (!isWindows11OrLater(currentBuildNumber())) return;
+  if (!usesBackdrop()) return;
 
   HWND handle = widgetHandle(window);
   if (!handle) return;
 
   const int corner = kDwmwcpRound;
-  DwmSetWindowAttribute(handle, DWMWA_WINDOW_CORNER_PREFERENCE, &corner,
-                        sizeof(corner));
+  applyDwmAttribute(handle, DWMWA_WINDOW_CORNER_PREFERENCE, &corner,
+                    sizeof(corner), "窗口圆角");
 
   const int backdrop = kDwmsbtMainWindow;
-  DwmSetWindowAttribute(handle, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop,
-                        sizeof(backdrop));
+  applyDwmAttribute(handle, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop,
+                    sizeof(backdrop), "Mica 背景");
 
-  const BOOL dark = readAppsUseLightTheme() ? FALSE : TRUE;
-  DwmSetWindowAttribute(handle, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark,
-                        sizeof(dark));
-}
+  // 仅浅色主题：始终关闭沉浸式暗色标题栏。
+  const BOOL dark = FALSE;
+  applyDwmAttribute(handle, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark),
+                    "暗色标题栏");
 
-bool WindowsWindowStyle::usesBackdrop() const {
-  return isWindows11OrLater(currentBuildNumber());
-}
-
-bool WindowsWindowStyle::prefersDarkTheme() const {
-  return !readAppsUseLightTheme();
+  // 将 DWM 框架扩展到整个客户区，确保透明区域绘制 Mica 材质而非透出桌面。
+  const MARGINS margins{-1, -1, -1, -1};
+  const HRESULT marginsResult = DwmExtendFrameIntoClientArea(handle, &margins);
+  if (FAILED(marginsResult)) {
+    qWarning() << "DWM 框架扩展失败: HRESULT =" << Qt::hex << marginsResult;
+  }
 }

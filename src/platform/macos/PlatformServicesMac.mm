@@ -22,7 +22,6 @@ class NullWindowStyleService final : public WindowStyleService {
   void prepare(QWidget*) override {}
   void apply(QWidget*) override {}
   bool usesBackdrop() const override { return false; }
-  bool prefersDarkTheme() const override { return false; }
 };
 }  // namespace
 
