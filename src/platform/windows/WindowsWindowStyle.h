@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <QtGlobal>
+
 #include "platform/WindowStyleService.h"
 
 class QWidget;
@@ -14,6 +16,9 @@ bool supportsSystemBackdrop(unsigned int buildNumber);
 
 // Mica 生效的全部条件：Win11、build 支持 backdrop、系统「透明效果」开启。
 bool micaBackdropAvailable(unsigned int buildNumber, bool transparencyEnabled);
+
+// 去掉 Windows 原生标题栏绘制，同时保留缩放、系统菜单和窗口控制能力。
+quintptr clickFlowNativeWindowStyle(quintptr currentStyle);
 
 class WindowsWindowStyle final : public WindowStyleService {
  public:

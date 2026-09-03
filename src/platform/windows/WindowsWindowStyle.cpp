@@ -64,6 +64,24 @@ HWND widgetHandle(const QWidget* widget) {
   return reinterpret_cast<HWND>(widget->winId());
 }
 
+void applyNativeWindowStyle(HWND handle) {
+  const auto current = static_cast<quintptr>(GetWindowLongPtrW(handle, GWL_STYLE));
+  const auto desired = clickFlowNativeWindowStyle(current);
+  if (desired == current) return;
+
+  SetLastError(ERROR_SUCCESS);
+  const LONG_PTR previous = SetWindowLongPtrW(
+      handle, GWL_STYLE, static_cast<LONG_PTR>(desired));
+  if (previous == 0 && GetLastError() != ERROR_SUCCESS) {
+    qWarning() << "Windows 窗口样式更新失败，错误码 =" << GetLastError();
+    return;
+  }
+
+  SetWindowPos(handle, nullptr, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
+                   SWP_FRAMECHANGED);
+}
+
 void applyDwmAttribute(HWND handle, DWORD attribute, const void* value,
                        DWORD size, const char* description) {
   const HRESULT result = DwmSetWindowAttribute(handle, attribute, value, size);
@@ -88,6 +106,16 @@ bool micaBackdropAvailable(unsigned int buildNumber, bool transparencyEnabled) {
          supportsSystemBackdrop(buildNumber) && transparencyEnabled;
 }
 
+quintptr clickFlowNativeWindowStyle(quintptr currentStyle) {
+  // DWM 在部分 Windows 11 版本上即使 WS_CAPTION 已清除，只要 WS_SYSMENU
+  // 或原生最小化按钮位仍存在，仍会合成一条幽灵标题栏。保留缩放边框和
+  // 最大化能力，其余窗口按钮全部交给 CaptionBar。
+  currentStyle &= ~static_cast<quintptr>(
+      WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+  currentStyle |= static_cast<quintptr>(WS_THICKFRAME | WS_MAXIMIZEBOX);
+  return currentStyle;
+}
+
 bool WindowsWindowStyle::usesBackdrop() const {
   return micaBackdropAvailable(currentBuildNumber(), readTransparencyEnabled());
 }
@@ -102,10 +130,12 @@ void WindowsWindowStyle::prepare(QWidget* window) {
 
 void WindowsWindowStyle::apply(QWidget* window) {
   if (!window) return;
-  if (!usesBackdrop()) return;
 
   HWND handle = widgetHandle(window);
   if (!handle) return;
+
+  applyNativeWindowStyle(handle);
+  if (!usesBackdrop()) return;
 
   const int corner = kDwmwcpRound;
   applyDwmAttribute(handle, DWMWA_WINDOW_CORNER_PREFERENCE, &corner,

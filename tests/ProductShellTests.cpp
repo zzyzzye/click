@@ -112,8 +112,6 @@ void ProductShellTests::captionBarExposesWindowControls() {
   QVERIFY(!bar.isMaximized());
   bar.setMaximized(true);
   QVERIFY(bar.isMaximized());
-  bar.setMaximizeButtonHovered(true);   // 不应崩溃（Task 6 的悬停同步入口）
-  bar.setMaximizeButtonHovered(false);
 }
 
 QTEST_MAIN(ProductShellTests)

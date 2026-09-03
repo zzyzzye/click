@@ -70,15 +70,37 @@ add_library(QtClickerCore STATIC
 target_include_directories(QtClickerCore PUBLIC src)
 target_link_libraries(QtClickerCore PUBLIC Qt6::Core)
 
+set(APP_CONTROLLER_SOURCES
+  src/app/controllers/ClickWorkflowController.cpp
+  src/app/controllers/HotkeyController.cpp
+  src/app/controllers/MacroWorkflowController.cpp
+  src/app/controllers/ProfileController.cpp
+  src/app/controllers/UpdateController.cpp
+  src/app/controllers/WindowChromeController.cpp
+  src/app/controllers/WorkflowUiStateController.cpp
+)
+
+set(APP_CONTROLLER_HEADERS
+  src/app/controllers/ClickWorkflowController.h
+  src/app/controllers/HotkeyController.h
+  src/app/controllers/MacroWorkflowController.h
+  src/app/controllers/ProfileController.h
+  src/app/controllers/UpdateController.h
+  src/app/controllers/WindowChromeController.h
+  src/app/controllers/WorkflowUiStateController.h
+)
+
 set(APP_SOURCES
   src/app/main.cpp
   src/app/MainWindow.cpp
   src/app/AppIdentity.cpp
   src/app/UiStyle.cpp
+  ${APP_CONTROLLER_SOURCES}
 )
 
 set(APP_HEADERS
   src/app/MainWindow.h
+  ${APP_CONTROLLER_HEADERS}
   src/app/AppIdentity.h
   src/app/UiStyle.h
   src/app/ClickFlow.manifest
@@ -322,6 +344,53 @@ if(WIN32)
   )
 endif()
 
+add_executable(ClickFlowAppControllerTests
+  tests/AppControllerTests.cpp
+  ${APP_CONTROLLER_SOURCES}
+  ${APP_CONTROLLER_HEADERS}
+  src/app/UiStyle.cpp
+  src/app/UiStyle.h
+  ${SHELL_WIDGET_SOURCES}
+  ${SHELL_PAGE_SOURCES}
+)
+target_include_directories(ClickFlowAppControllerTests PRIVATE src)
+target_link_libraries(ClickFlowAppControllerTests PRIVATE
+  QtClickerCore
+  Qt6::Network
+  Qt6::Test
+  Qt6::Widgets
+)
+if(WIN32)
+  target_link_libraries(ClickFlowAppControllerTests PRIVATE user32)
+endif()
+add_test(NAME AppControllers COMMAND ClickFlowAppControllerTests)
+if(WIN32)
+  set_tests_properties(AppControllers PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+endif()
+
+add_executable(ClickFlowUpdateControllerTests
+  tests/UpdateControllerTests.cpp
+  src/app/controllers/UpdateController.cpp
+  src/app/controllers/UpdateController.h
+)
+target_include_directories(ClickFlowUpdateControllerTests PRIVATE src)
+target_link_libraries(ClickFlowUpdateControllerTests PRIVATE
+  Qt6::Core
+  Qt6::Network
+  Qt6::Test
+)
+add_test(NAME UpdateController COMMAND ClickFlowUpdateControllerTests)
+if(WIN32)
+  set_tests_properties(UpdateController PROPERTIES
+    ENVIRONMENT_MODIFICATION
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
+  )
+endif()
+
 if(WIN32)
   add_executable(ClickFlowWindowsMacroTests
     tests/WindowsMacroTests.cpp
@@ -420,6 +489,8 @@ if(WIN32)
     tests/MainWindowTests.cpp
     src/app/MainWindow.cpp
     src/app/MainWindow.h
+    ${APP_CONTROLLER_SOURCES}
+    ${APP_CONTROLLER_HEADERS}
     src/app/UiStyle.cpp
     src/app/UiStyle.h
     ${SHELL_WIDGET_SOURCES}
@@ -478,6 +549,8 @@ if(APPLE)
     tests/MainWindowTests.cpp
     src/app/MainWindow.cpp
     src/app/MainWindow.h
+    ${APP_CONTROLLER_SOURCES}
+    ${APP_CONTROLLER_HEADERS}
     src/app/UiStyle.cpp
     src/app/UiStyle.h
     ${SHELL_WIDGET_SOURCES}
@@ -489,6 +562,7 @@ if(APPLE)
     QtClickerCore
     Qt6::Test
     Qt6::Widgets
+    Qt6::Network
     "-framework ApplicationServices"
     "-framework Carbon"
   )

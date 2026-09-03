@@ -1,5 +1,7 @@
 #include "app/widgets/CaptionBar.h"
 
+#include <cmath>
+
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMouseEvent>
@@ -27,18 +29,12 @@ class CaptionButton final : public QAbstractButton {
     update();
   }
 
-  void setForceHovered(bool hovered) {
-    if (forceHovered_ == hovered) return;
-    forceHovered_ = hovered;
-    update();
-  }
-
  protected:
   void paintEvent(QPaintEvent*) override {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     const ThemeTokens& tokens = fluentLightTokens();
-    const bool hovered = isDown() || forceHovered_ || underMouse();
+    const bool hovered = isDown() || underMouse();
     const bool close = icon_ == Icon::Close;
 
     if (hovered) {
@@ -47,38 +43,40 @@ class CaptionButton final : public QAbstractButton {
 
     const QColor iconColor =
         (hovered && close) ? QColor(Qt::white) : tokens.textPrimary;
-    painter.setPen(QPen(iconColor, 1.0));
+    QPen pen(iconColor, 1.0);
+    pen.setCosmetic(true);  // 始终 1 物理像素宽
+    painter.setPen(pen);
+
+    // 坐标吸附到物理像素中心，保证任何 DPI 下线条清晰不虚
+    const qreal dpr = devicePixelRatioF();
+    const auto px = [dpr](qreal v) { return (std::floor(v * dpr) + 0.5) / dpr; };
 
     const QPointF c = rect().center();
-    const QRectF r(c.x() - 5, c.y() - 5, 10, 10);
+    const qreal l = px(c.x() - 5), t = px(c.y() - 5);
+    const qreal rgt = px(c.x() + 5), btm = px(c.y() + 5);
     switch (icon_) {
       case Icon::Minimize:
-        painter.drawLine(QPointF(r.left(), c.y() + 0.5),
-                         QPointF(r.right() + 1, c.y() + 0.5));
+        painter.drawLine(QPointF(l, px(c.y())), QPointF(rgt, px(c.y())));
         break;
       case Icon::Maximize:
-        painter.drawRect(r.adjusted(0.5, 0.5, -0.5, -0.5));
+        painter.drawRect(QRectF(QPointF(l, t), QPointF(rgt, btm)));
         break;
       case Icon::Restore:
         // 后方方框只画露出的上边与右边，前方方框画完整轮廓。
         painter.drawPolyline(QVector<QPointF>{
-            QPointF(r.left() + 2.5, r.top() + 2.5),
-            QPointF(r.left() + 2.5, r.top() + 0.5),
-            QPointF(r.right() + 0.5, r.top() + 0.5),
-            QPointF(r.right() + 0.5, r.bottom() - 1.5)});
-        painter.drawRect(QRectF(r.left() + 0.5, r.top() + 2.5, 7, 7));
+            QPointF(l + 2, t + 3), QPointF(l + 2, t), QPointF(rgt, t),
+            QPointF(rgt, btm - 2)});
+        painter.drawRect(QRectF(QPointF(l, t + 3), QPointF(rgt - 2, btm)));
         break;
       case Icon::Close:
-        painter.drawLine(r.topLeft(), r.bottomRight() + QPointF(1, 1));
-        painter.drawLine(r.topRight() + QPointF(1, 0),
-                         r.bottomLeft() + QPointF(0, 1));
+        painter.drawLine(QPointF(l, t), QPointF(rgt, btm));
+        painter.drawLine(QPointF(rgt, t), QPointF(l, btm));
         break;
     }
   }
 
  private:
   Icon icon_;
-  bool forceHovered_ = false;
 };
 
 }  // namespace
@@ -129,10 +127,6 @@ void CaptionBar::setMaximized(bool maximized) {
                           : CaptionButton::Icon::Maximize);
   maximizeButton_->setToolTip(maximized ? QStringLiteral("还原")
                                         : QStringLiteral("最大化"));
-}
-
-void CaptionBar::setMaximizeButtonHovered(bool hovered) {
-  static_cast<CaptionButton*>(maximizeButton_)->setForceHovered(hovered);
 }
 
 void CaptionBar::mousePressEvent(QMouseEvent* event) {

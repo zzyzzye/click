@@ -2,13 +2,10 @@
 
 #include <QMainWindow>
 
-#include <QJsonObject>
-#include <QUrl>
-
-#include <memory>
 #include <functional>
-#include <optional>
+#include <memory>
 
+#include "core/AutomationCoordinator.h"
 #include "core/ClickController.h"
 #include "core/MacroController.h"
 #include "core/MacroRepository.h"
@@ -18,14 +15,26 @@
 
 class ActionBar;
 class CaptionBar;
+class ClickBackend;
 class ClickSettingsPage;
+class ClickWorkflowController;
+class HotkeyController;
+class HotkeyService;
 class HotkeySettingsPage;
 class MacroRecordingPage;
+class MacroRepository;
+class MacroWorkflowController;
 class NavigationSidebar;
 class PresetsAboutPage;
+class ProfileController;
 class QStackedWidget;
+class SettingsRepository;
 class StatusStrip;
-class QNetworkAccessManager;
+class UpdateController;
+class WindowChromeController;
+class WindowStyleService;
+class WorkflowUiStateController;
+struct MacroPlatformServices;
 
 class MainWindow : public QMainWindow {
   Q_OBJECT
@@ -50,70 +59,24 @@ class MainWindow : public QMainWindow {
              QWidget* parent = nullptr);
   ~MainWindow() override;
 
- private slots:
-  void handleStartStop();
-  void handleCapturePoint();
-  void handleEmergencyStop();
-  void handleSavePreset();
-  void handleNewPreset();
-  void handleRenamePreset();
-  void handleDeletePreset();
-  void handleLoadPreset();
-  void handleProfileSelectionChanged();
-  void handlePermissionRequest();
-  void handleStatusChanged(const QString& status);
-  void handleRunningChanged(bool running);
-  void handleCountdownChanged(int seconds);
-  void handleRemainingClicksChanged(int remaining);
-  void handleClicksExecutedChanged(int executed);
-  void handleHotkeyActivationRequested(bool enabled);
-  void handleMacroRecordRequested(const MacroRecordingOptions& options);
-  void handleMacroPlayRequested(const QString& macroId,
-                                const MacroPlaybackSettings& settings);
-  void handleMacroStopRequested();
-  void handleMacroRecordingCompleted(const MacroSequence& sequence);
-  void handleMacroDeleteRequested(const QString& macroId);
-  void handleMacroRenameRequested(const QString& macroId);
-  void handleMacroWindowPointSelected(const QPoint& globalPoint);
-  void handleMacroStateChanged(MacroControllerState state);
-  void handleUpdateRequested();
-
  private:
   void buildUi();
+  void installInputFilters();
+  void connectControllers();
   void showEvent(QShowEvent* event) override;
   bool nativeEvent(const QByteArray& eventType, void* message,
                    qintptr* result) override;
   void changeEvent(QEvent* event) override;
-  void refreshPresetList(const QString& selectedName = {});
-  void applyProfileToUi(const ClickProfile& profile);
-  ClickProfile collectProfileFromUi() const;
-  void updateRunningUi(bool running);
-  void updatePermissionBanner();
-  void applyWindowOnTop(bool enabled);
-  bool validateHotkeys(const ClickProfile& profile, QString* errorMessage) const;
-  bool tryEnableGlobalHotkeys(const ClickProfile& profile);
-  void disableGlobalHotkeys(const QString& status);
-  QString selectedProfileName() const;
-  void refreshMacroList(const QString& selectedId = {});
-  void refreshMacroWindows(quintptr selectedNativeId = 0);
-  std::optional<MacroSequence> findMacro(const QString& id) const;
-  bool confirmMacroSafety();
-  void checkForUpdates();
-  void checkForUpdatesFromReleasePage();
-  void downloadUpdate();
 
-  std::unique_ptr<ClickBackend> backend_;
-  std::unique_ptr<HotkeyService> hotkeyService_;
-  std::unique_ptr<SettingsRepository> settingsRepository_;
   AutomationCoordinator automationCoordinator_;
-  ClickController controller_;
-  MacroPlatformServices macroServices_;
-  std::unique_ptr<MacroRepository> macroRepository_;
-  MacroController macroController_;
-  MacroSafetyConfirmation safetyConfirmation_;
-  MacroNameProvider macroNameProvider_;
   std::unique_ptr<WindowStyleService> windowStyle_;
-  QVector<MacroSequence> macros_;
+  std::unique_ptr<WindowChromeController> windowChrome_;
+  std::unique_ptr<ProfileController> profileController_;
+  std::unique_ptr<HotkeyController> hotkeyController_;
+  std::unique_ptr<ClickWorkflowController> clickController_;
+  std::unique_ptr<MacroWorkflowController> macroController_;
+  std::unique_ptr<WorkflowUiStateController> workflowUiController_;
+  std::unique_ptr<UpdateController> updateController_;
 
   NavigationSidebar* sidebar_ = nullptr;
   CaptionBar* captionBar_ = nullptr;
@@ -124,14 +87,4 @@ class MainWindow : public QMainWindow {
   MacroRecordingPage* macroPage_ = nullptr;
   PresetsAboutPage* presetsPage_ = nullptr;
   ActionBar* actionBar_ = nullptr;
-  QString currentProfileName_ = "Default";
-  bool globalHotkeysEnabled_ = false;
-  int clicksExecuted_ = 0;
-  bool applyingProfile_ = false;
-  QNetworkAccessManager* updateNetwork_ = nullptr;
-  bool updateReady_ = false;
-  QString updateVersion_;
-  QUrl updateInstallerUrl_;
-  QUrl updateChecksumUrl_;
-  QString lastHotkeyRegistrationError_;
 };

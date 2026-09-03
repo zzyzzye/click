@@ -2,6 +2,7 @@
 #include <QComboBox>
 #include <QFile>
 #include <QLabel>
+#include <QListWidget>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -167,6 +168,7 @@ class MainWindowTests : public QObject {
   void registrationFailureReturnsActivationToOff();
   void windowStyleReappliedAfterOnTopToggle();
   void immersiveCaptionIsInstalled();
+  void sidebarNavigationDoesNotMinimizeWindow();
 };
 
 #if defined(Q_OS_WIN)
@@ -604,6 +606,35 @@ void MainWindowTests::immersiveCaptionIsInstalled() {
   QVERIFY(caption->findChild<QAbstractButton*>("captionMaximizeButton"));
   QVERIFY(caption->findChild<QAbstractButton*>("captionMinimizeButton"));
   QVERIFY(caption->findChild<QAbstractButton*>("captionCloseButton"));
+}
+
+
+void MainWindowTests::sidebarNavigationDoesNotMinimizeWindow() {
+  const QString appName =
+      QString("QtClickerSidebarNavigationTest-%1")
+          .arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::make_unique<MainWindowFakeHotkeyService>(),
+                    std::move(repository));
+  window.show();
+  QCoreApplication::processEvents();
+
+  auto* navigation = window.findChild<QListWidget*>("sidebarNavigation");
+  auto* pages = window.findChild<QStackedWidget*>("contentPages");
+  QVERIFY(navigation);
+  QVERIFY(pages);
+  QVERIFY(!window.windowState().testFlag(Qt::WindowMinimized));
+
+  const QRect targetRect = navigation->visualItemRect(navigation->item(1));
+  QVERIFY(targetRect.isValid());
+  QTest::mouseClick(navigation->viewport(), Qt::LeftButton, Qt::NoModifier,
+                    targetRect.center());
+
+  QTRY_COMPARE(pages->currentIndex(),
+               static_cast<int>(ShellPage::MacroRecording));
+  QVERIFY(window.isVisible());
+  QVERIFY(!window.windowState().testFlag(Qt::WindowMinimized));
 }
 
 QTEST_MAIN(MainWindowTests)

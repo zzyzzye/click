@@ -15,10 +15,6 @@ class CaptionBar final : public QWidget {
   void setMaximized(bool maximized);
   bool isMaximized() const { return maximized_; }
 
-  // WM_NCHITTEST 返回 HTMAXBUTTON 后按钮收不到普通 hover 事件，
-  // 由 MainWindow 的 WM_NCMOUSEMOVE 手动同步悬停态。
-  void setMaximizeButtonHovered(bool hovered);
-
   QSize sizeHint() const override { return QSize(-1, 32); }
 
  signals:

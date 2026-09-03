@@ -1,5 +1,8 @@
 #include <QTest>
 
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 #include "platform/windows/WindowsWindowStyle.h"
 
 class WindowsWindowStyleTests : public QObject {
@@ -12,6 +15,7 @@ class WindowsWindowStyleTests : public QObject {
   void systemBackdropRequiresBuild22621();
   void micaBackdropRequiresTransparency();
   void windows11ThresholdUnchanged();
+  void customFrameRemovesNativeCaptionAndKeepsWindowControls();
 };
 
 void WindowsWindowStyleTests::windows11DetectedAtBuild22000() {
@@ -44,6 +48,16 @@ void WindowsWindowStyleTests::micaBackdropRequiresTransparency() {
 void WindowsWindowStyleTests::windows11ThresholdUnchanged() {
   QVERIFY(isWindows11OrLater(22000));
   QVERIFY(!isWindows11OrLater(21999));
+}
+
+
+void WindowsWindowStyleTests::customFrameRemovesNativeCaptionAndKeepsWindowControls() {
+  const quintptr style = clickFlowNativeWindowStyle(WS_OVERLAPPEDWINDOW);
+  QCOMPARE(style & static_cast<quintptr>(WS_CAPTION), quintptr{0});
+  QVERIFY(style & static_cast<quintptr>(WS_THICKFRAME));
+  QCOMPARE(style & static_cast<quintptr>(WS_SYSMENU), quintptr{0});
+  QCOMPARE(style & static_cast<quintptr>(WS_MINIMIZEBOX), quintptr{0});
+  QVERIFY(style & static_cast<quintptr>(WS_MAXIMIZEBOX));
 }
 
 QTEST_APPLESS_MAIN(WindowsWindowStyleTests)
