@@ -138,7 +138,7 @@ class AppControllerTests : public QObject {
 void AppControllerTests::profileControllerLoadsAndBroadcastsProfile() {
   const QString appName =
       QString("ProfileControllerTest-%1").arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   ClickProfile expected;
   expected.name = "测试配置";
   expected.intervalMs = 321;

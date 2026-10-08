@@ -45,6 +45,8 @@ ClickFlow-<version>-win64-setup.exe.sha256
 
 当前安装包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”。建议在安装前核对 Release 附带的 SHA-256 文件。
 
+应用名称、组织名称和安装包发布者统一为 `ClickFlow`。设置与宏使用新的 `ClickFlow` 数据路径；旧版 `OpenAI/QtClicker` 路径中的数据不会自动迁移，升级前请备份原有配置与宏。
+
 ## Windows 键鼠宏
 
 默认控制热键：

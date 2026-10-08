@@ -9,7 +9,7 @@
 #endif
 
 #define AppName "ClickFlow"
-#define AppPublisher "zzyzzye"
+#define AppPublisher "ClickFlow"
 #define AppExeName "ClickFlow.exe"
 #define AppIdValue "C2A5B39A-329F-4EF3-8E1F-9A2C2C93281C"
 #define ProjectUrl "https://github.com/zzyzzye/click"
@@ -67,7 +67,7 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 Filename: "{app}\{#AppExeName}"; Description: "运行 {#AppName}"; Flags: nowait postinstall skipifsilent
 
 [Registry]
-Root: HKCU; Subkey: "Software\OpenAI\QtClicker"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\ClickFlow\ClickFlow"; Flags: uninsdeletekey
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{userappdata}\OpenAI\QtClicker"
+Type: filesandordirs; Name: "{userappdata}\ClickFlow\ClickFlow"

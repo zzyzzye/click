@@ -6,8 +6,8 @@
 #include "ClickFlowVersion.h"
 
 void applyApplicationIdentity() {
-  QCoreApplication::setOrganizationName("OpenAI");
-  QCoreApplication::setApplicationName("QtClicker");
+  QCoreApplication::setOrganizationName("ClickFlow");
+  QCoreApplication::setApplicationName("ClickFlow");
   QCoreApplication::setApplicationVersion(ClickFlowVersion::string);
   QGuiApplication::setApplicationDisplayName("ClickFlow");
 }

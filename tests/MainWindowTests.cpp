@@ -187,8 +187,8 @@ void MainWindowTests::windowsFactoriesCreateNativeServices() {
 
 void MainWindowTests::availableInputHidesPermissionRequest() {
   const QString appName =
-      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+      QString("ClickFlowMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
 
   MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
                     std::make_unique<MainWindowFakeHotkeyService>(),
@@ -205,8 +205,8 @@ void MainWindowTests::availableInputHidesPermissionRequest() {
 
 void MainWindowTests::loadedProfileRoundTripsThroughStart() {
   const QString appName =
-      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+      QString("ClickFlowMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
 
   ClickProfile expected;
   expected.name = "Windows profile";
@@ -252,8 +252,8 @@ void MainWindowTests::loadedProfileRoundTripsThroughStart() {
 
 void MainWindowTests::modeControlsFollowProfileChoices() {
   const QString appName =
-      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+      QString("ClickFlowMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
                     std::make_unique<MainWindowFakeHotkeyService>(),
                     std::move(repository));
@@ -284,8 +284,8 @@ void MainWindowTests::modeControlsFollowProfileChoices() {
 
 void MainWindowTests::captureHotkeyUsesCurrentCursor() {
   const QString appName =
-      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+      QString("ClickFlowMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   auto hotkeys = std::make_unique<MainWindowFakeHotkeyService>();
   auto* hotkeySignals = hotkeys.get();
   MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
@@ -307,8 +307,8 @@ void MainWindowTests::captureHotkeyUsesCurrentCursor() {
 
 void MainWindowTests::usesPersistentClickFlowShell() {
   const QString appName =
-      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+      QString("ClickFlowMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
                     std::make_unique<MainWindowFakeHotkeyService>(),
                     std::move(repository));
@@ -340,8 +340,8 @@ void MainWindowTests::controlChevronResourcesAreAvailable() {
 
 void MainWindowTests::usesClickFlowControlChrome() {
   const QString appName =
-      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+      QString("ClickFlowMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
                     std::make_unique<MainWindowFakeHotkeyService>(),
                     std::move(repository));
@@ -419,8 +419,8 @@ void MainWindowTests::smoothScrollClampsAtBoundaries() {
 
 void MainWindowTests::wheelOverComboScrollsTheSettingsPage() {
   const QString appName =
-      QString("QtClickerMainWindowTest-%1").arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+      QString("ClickFlowMainWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
                     std::make_unique<MainWindowFakeHotkeyService>(),
                     std::move(repository));
@@ -451,8 +451,8 @@ void MainWindowTests::macroServicesRecordPersistAndReplay() {
   QTemporaryDir directory;
   QVERIFY(directory.isValid());
   const QString appName =
-      QString("QtClickerMacroWindowTest-%1").arg(QUuid::createUuid().toString());
-  auto settings = std::make_unique<SettingsRepository>("OpenAI", appName);
+      QString("ClickFlowMacroWindowTest-%1").arg(QUuid::createUuid().toString());
+  auto settings = std::make_unique<SettingsRepository>("ClickFlow", appName);
   settings->setMacroSafetyAcknowledged(true);
 
   MacroPlatformServices macroServices;
@@ -504,9 +504,9 @@ void MainWindowTests::macroServicesRecordPersistAndReplay() {
 
 void MainWindowTests::startsWithGlobalHotkeysDisabled() {
   const QString appName =
-      QString("QtClickerHotkeyLifecycleTest-%1")
+      QString("ClickFlowHotkeyLifecycleTest-%1")
           .arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   auto hotkeys = std::make_unique<MainWindowFakeHotkeyService>();
   auto* observedHotkeys = hotkeys.get();
   MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
@@ -527,9 +527,9 @@ void MainWindowTests::startsWithGlobalHotkeysDisabled() {
 
 void MainWindowTests::globalHotkeysRequireManualActivation() {
   const QString appName =
-      QString("QtClickerHotkeyLifecycleTest-%1")
+      QString("ClickFlowHotkeyLifecycleTest-%1")
           .arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   auto hotkeys = std::make_unique<MainWindowFakeHotkeyService>();
   auto* observedHotkeys = hotkeys.get();
   MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
@@ -549,9 +549,9 @@ void MainWindowTests::globalHotkeysRequireManualActivation() {
 
 void MainWindowTests::registrationFailureReturnsActivationToOff() {
   const QString appName =
-      QString("QtClickerHotkeyLifecycleTest-%1")
+      QString("ClickFlowHotkeyLifecycleTest-%1")
           .arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   auto hotkeys = std::make_unique<MainWindowFakeHotkeyService>();
   hotkeys->registrationResult = false;
   auto* observedHotkeys = hotkeys.get();
@@ -569,8 +569,8 @@ void MainWindowTests::registrationFailureReturnsActivationToOff() {
 
 void MainWindowTests::windowStyleReappliedAfterOnTopToggle() {
   const QString appName =
-      QString("QtClickerMainWindowStyleTest-%1").arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+      QString("ClickFlowMainWindowStyleTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   auto windowStyle = std::make_unique<MainWindowFakeWindowStyle>();
   auto* observed = windowStyle.get();
 
@@ -592,8 +592,8 @@ void MainWindowTests::windowStyleReappliedAfterOnTopToggle() {
 
 void MainWindowTests::immersiveCaptionIsInstalled() {
   const QString appName =
-      QString("QtClickerMainWindowCaptionTest-%1").arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+      QString("ClickFlowMainWindowCaptionTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
                     std::make_unique<MainWindowFakeHotkeyService>(),
                     std::move(repository));
@@ -611,9 +611,9 @@ void MainWindowTests::immersiveCaptionIsInstalled() {
 
 void MainWindowTests::sidebarNavigationDoesNotMinimizeWindow() {
   const QString appName =
-      QString("QtClickerSidebarNavigationTest-%1")
+      QString("ClickFlowSidebarNavigationTest-%1")
           .arg(QUuid::createUuid().toString());
-  auto repository = std::make_unique<SettingsRepository>("OpenAI", appName);
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
   MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
                     std::make_unique<MainWindowFakeHotkeyService>(),
                     std::move(repository));

@@ -62,13 +62,13 @@ set(CORE_HEADERS
   src/core/SettingsRepository.h
 )
 
-add_library(QtClickerCore STATIC
+add_library(ClickFlowCore STATIC
   ${CORE_SOURCES}
   ${CORE_HEADERS}
 )
 
-target_include_directories(QtClickerCore PUBLIC src)
-target_link_libraries(QtClickerCore PUBLIC Qt6::Core)
+target_include_directories(ClickFlowCore PUBLIC src)
+target_link_libraries(ClickFlowCore PUBLIC Qt6::Core)
 
 set(APP_CONTROLLER_SOURCES
   src/app/controllers/ClickWorkflowController.cpp
@@ -155,10 +155,10 @@ elseif(WIN32)
     src/platform/windows/WindowsWindowStyle.h
   )
 else()
-  message(FATAL_ERROR "QtClicker supports only macOS and Windows.")
+  message(FATAL_ERROR "ClickFlow supports only macOS and Windows.")
 endif()
 
-add_executable(QtClicker MACOSX_BUNDLE
+add_executable(ClickFlow MACOSX_BUNDLE
   ${APP_SOURCES}
   ${CORE_SOURCES}
   ${PLATFORM_SOURCES}
@@ -166,31 +166,31 @@ add_executable(QtClicker MACOSX_BUNDLE
   ${CORE_HEADERS}
 )
 
-target_include_directories(QtClicker PRIVATE src "${CLICKFLOW_GENERATED_DIR}")
-target_link_libraries(QtClicker PRIVATE QtClickerCore Qt6::Widgets Qt6::Network)
-set_target_properties(QtClicker PROPERTIES OUTPUT_NAME ClickFlow)
+target_include_directories(ClickFlow PRIVATE src "${CLICKFLOW_GENERATED_DIR}")
+target_link_libraries(ClickFlow PRIVATE ClickFlowCore Qt6::Widgets Qt6::Network)
+set_target_properties(ClickFlow PROPERTIES OUTPUT_NAME ClickFlow)
 
 if(APPLE)
-  target_link_libraries(QtClicker PRIVATE
+  target_link_libraries(ClickFlow PRIVATE
     "-framework ApplicationServices"
     "-framework Carbon"
   )
 elseif(WIN32)
-  set_target_properties(QtClicker PROPERTIES WIN32_EXECUTABLE TRUE)
-  target_link_libraries(QtClicker PRIVATE user32 dwmapi)
-  target_link_options(QtClicker PRIVATE /MANIFEST:NO)
+  set_target_properties(ClickFlow PROPERTIES WIN32_EXECUTABLE TRUE)
+  target_link_libraries(ClickFlow PRIVATE user32 dwmapi)
+  target_link_options(ClickFlow PRIVATE /MANIFEST:NO)
 endif()
 
-add_executable(QtClickerTests
+add_executable(ClickFlowTests
   tests/ClickerTests.cpp
 )
 
-target_include_directories(QtClickerTests PRIVATE src)
-target_link_libraries(QtClickerTests PRIVATE QtClickerCore Qt6::Test Qt6::Widgets)
+target_include_directories(ClickFlowTests PRIVATE src)
+target_link_libraries(ClickFlowTests PRIVATE ClickFlowCore Qt6::Test Qt6::Widgets)
 
-add_test(NAME QtClickerTests COMMAND QtClickerTests)
+add_test(NAME ClickFlowTests COMMAND ClickFlowTests)
 if(WIN32)
-  set_tests_properties(QtClickerTests PROPERTIES
+  set_tests_properties(ClickFlowTests PROPERTIES
     ENVIRONMENT_MODIFICATION
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
   )
@@ -323,7 +323,7 @@ set(SHELL_PAGE_SOURCES
   src/app/pages/PresetsAboutPage.h
 )
 
-target_sources(QtClicker PRIVATE ${SHELL_WIDGET_SOURCES} ${SHELL_PAGE_SOURCES})
+target_sources(ClickFlow PRIVATE ${SHELL_WIDGET_SOURCES} ${SHELL_PAGE_SOURCES})
 
 add_executable(ClickFlowPageTests
   tests/ClickFlowPageTests.cpp
@@ -334,7 +334,7 @@ add_executable(ClickFlowPageTests
   src/app/widgets/WindowPickerButton.h
 )
 target_include_directories(ClickFlowPageTests PRIVATE src)
-target_link_libraries(ClickFlowPageTests PRIVATE QtClickerCore Qt6::Test Qt6::Widgets)
+target_link_libraries(ClickFlowPageTests PRIVATE ClickFlowCore Qt6::Test Qt6::Widgets)
 add_test(NAME ClickFlowPages COMMAND ClickFlowPageTests)
 if(WIN32)
   set_tests_properties(ClickFlowPages PROPERTIES
@@ -355,7 +355,7 @@ add_executable(ClickFlowAppControllerTests
 )
 target_include_directories(ClickFlowAppControllerTests PRIVATE src)
 target_link_libraries(ClickFlowAppControllerTests PRIVATE
-  QtClickerCore
+  ClickFlowCore
   Qt6::Network
   Qt6::Test
   Qt6::Widgets
@@ -425,27 +425,27 @@ if(WIN32)
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
   )
 
-  add_executable(QtClickerWindowsTests
+  add_executable(ClickFlowWindowsTests
     tests/WindowsClickBackendTests.cpp
     src/platform/windows/WindowsInputApi.cpp
     src/platform/windows/WindowsClickBackend.cpp
     src/platform/windows/WindowsInputApi.h
     src/platform/windows/WindowsClickBackend.h
   )
-  target_include_directories(QtClickerWindowsTests PRIVATE src)
-  target_link_libraries(QtClickerWindowsTests PRIVATE
-    QtClickerCore
+  target_include_directories(ClickFlowWindowsTests PRIVATE src)
+  target_link_libraries(ClickFlowWindowsTests PRIVATE
+    ClickFlowCore
     Qt6::Test
     Qt6::Widgets
     user32
   )
-  add_test(NAME WindowsClickBackend COMMAND QtClickerWindowsTests)
+  add_test(NAME WindowsClickBackend COMMAND ClickFlowWindowsTests)
   set_tests_properties(WindowsClickBackend PROPERTIES
     ENVIRONMENT_MODIFICATION
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
   )
 
-  add_executable(QtClickerWindowsHotkeyTests
+  add_executable(ClickFlowWindowsHotkeyTests
     tests/WindowsHotkeyTests.cpp
     src/platform/windows/WindowsHotkeyMapping.cpp
     src/platform/windows/WindowsHotkeyMapping.h
@@ -454,14 +454,14 @@ if(WIN32)
     src/platform/windows/WindowsHotkeyService.cpp
     src/platform/windows/WindowsHotkeyService.h
   )
-  target_include_directories(QtClickerWindowsHotkeyTests PRIVATE src)
-  target_link_libraries(QtClickerWindowsHotkeyTests PRIVATE
-    QtClickerCore
+  target_include_directories(ClickFlowWindowsHotkeyTests PRIVATE src)
+  target_link_libraries(ClickFlowWindowsHotkeyTests PRIVATE
+    ClickFlowCore
     Qt6::Test
     Qt6::Widgets
     user32
   )
-  add_test(NAME WindowsHotkeyMapping COMMAND QtClickerWindowsHotkeyTests)
+  add_test(NAME WindowsHotkeyMapping COMMAND ClickFlowWindowsHotkeyTests)
   set_tests_properties(WindowsHotkeyMapping PROPERTIES
     ENVIRONMENT_MODIFICATION
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
@@ -485,7 +485,7 @@ if(WIN32)
       "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>"
   )
 
-  add_executable(QtClickerMainWindowTests
+  add_executable(ClickFlowMainWindowTests
     tests/MainWindowTests.cpp
     src/app/MainWindow.cpp
     src/app/MainWindow.h
@@ -517,16 +517,16 @@ if(WIN32)
     src/platform/windows/WindowsWindowStyle.cpp
     src/platform/windows/WindowsWindowStyle.h
   )
-  target_include_directories(QtClickerMainWindowTests PRIVATE src)
-  target_link_libraries(QtClickerMainWindowTests PRIVATE
-    QtClickerCore
+  target_include_directories(ClickFlowMainWindowTests PRIVATE src)
+  target_link_libraries(ClickFlowMainWindowTests PRIVATE
+    ClickFlowCore
     Qt6::Test
     Qt6::Widgets
     Qt6::Network
     user32
     dwmapi
   )
-  add_test(NAME MainWindow COMMAND QtClickerMainWindowTests)
+  add_test(NAME MainWindow COMMAND ClickFlowMainWindowTests)
   set_tests_properties(MainWindow PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     ENVIRONMENT_MODIFICATION
@@ -545,7 +545,7 @@ if(WIN32)
 endif()
 
 if(APPLE)
-  add_executable(QtClickerMainWindowTests
+  add_executable(ClickFlowMainWindowTests
     tests/MainWindowTests.cpp
     src/app/MainWindow.cpp
     src/app/MainWindow.h
@@ -557,14 +557,14 @@ if(APPLE)
     ${SHELL_PAGE_SOURCES}
     ${PLATFORM_SOURCES}
   )
-  target_include_directories(QtClickerMainWindowTests PRIVATE src)
-  target_link_libraries(QtClickerMainWindowTests PRIVATE
-    QtClickerCore
+  target_include_directories(ClickFlowMainWindowTests PRIVATE src)
+  target_link_libraries(ClickFlowMainWindowTests PRIVATE
+    ClickFlowCore
     Qt6::Test
     Qt6::Widgets
     Qt6::Network
     "-framework ApplicationServices"
     "-framework Carbon"
   )
-  add_test(NAME MainWindow COMMAND QtClickerMainWindowTests)
+  add_test(NAME MainWindow COMMAND ClickFlowMainWindowTests)
 endif()

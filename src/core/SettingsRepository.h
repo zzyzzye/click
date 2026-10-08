@@ -8,8 +8,8 @@
 
 class SettingsRepository {
  public:
-  explicit SettingsRepository(const QString& organization = "OpenAI",
-                              const QString& application = "QtClicker");
+  explicit SettingsRepository(const QString& organization = "ClickFlow",
+                              const QString& application = "ClickFlow");
 
   QStringList profileNames() const;
   bool hasProfile(const QString& name) const;
@@ -28,4 +28,3 @@ class SettingsRepository {
 
   mutable QSettings settings_;
 };
-

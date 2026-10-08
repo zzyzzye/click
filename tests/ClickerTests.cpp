@@ -166,8 +166,8 @@ void ClickerTests::controllerUsesExclusiveAutomationOwnership() {
 }
 
 void ClickerTests::settingsRepositoryCrud() {
-  const QString appName = QString("QtClickerTest-%1").arg(QUuid::createUuid().toString());
-  SettingsRepository repository("OpenAI", appName);
+  const QString appName = QString("ClickFlowTest-%1").arg(QUuid::createUuid().toString());
+  SettingsRepository repository("ClickFlow", appName);
 
   ClickProfile first;
   first.name = "Alpha";
@@ -193,8 +193,8 @@ void ClickerTests::settingsRepositoryCrud() {
 
 void ClickerTests::settingsRepositoryPersistsMacroSafetyAcknowledgement() {
   const QString appName =
-      QString("QtClickerSafetyTest-%1").arg(QUuid::createUuid().toString());
-  SettingsRepository repository("OpenAI", appName);
+      QString("ClickFlowSafetyTest-%1").arg(QUuid::createUuid().toString());
+  SettingsRepository repository("ClickFlow", appName);
 
   QVERIFY(!repository.macroSafetyAcknowledged());
   repository.setMacroSafetyAcknowledged(true);

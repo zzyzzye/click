@@ -215,8 +215,8 @@ void UpdateController::resetAction(const QString& status,
                                    const QString& actionText) {
   updateReady_ = false;
   updateVersion_.clear();
-  installerUrl_ = {};
-  checksumUrl_ = {};
+  installerUrl_ = QUrl{};
+  checksumUrl_ = QUrl{};
   emit statusChanged(status);
   emit actionChanged(actionText, true);
 }
