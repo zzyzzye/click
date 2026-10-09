@@ -13,6 +13,16 @@
 #define AppExeName "ClickFlow.exe"
 #define AppIdValue "C2A5B39A-329F-4EF3-8E1F-9A2C2C93281C"
 #define ProjectUrl "https://github.com/zzyzzye/click"
+#ifndef AppArchitecture
+  #define AppArchitecture "x64"
+#endif
+#if AppArchitecture == "arm64"
+  #define AllowedArchitecture "arm64"
+  #define PlatformName "win-arm64"
+#else
+  #define AllowedArchitecture "x64compatible"
+  #define PlatformName "win64"
+#endif
 
 [Setup]
 AppId={{{#AppIdValue}}
@@ -27,14 +37,15 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed={#AllowedArchitecture}
+ArchitecturesInstallIn64BitMode={#AllowedArchitecture}
 MinVersion=10.0
 OutputDir={#OutputDir}
-OutputBaseFilename={#AppName}-{#AppVersion}-win64-setup
+OutputBaseFilename={#AppName}-{#AppVersion}-{#PlatformName}-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\src\app\resources\ClickFlow.ico
 UninstallDisplayIcon={app}\{#AppExeName}
 UninstallDisplayName={#AppName}
 CloseApplications=force

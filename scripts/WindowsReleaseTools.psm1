@@ -19,12 +19,16 @@ function Get-ClickFlowProjectVersion {
 
 function Get-ClickFlowInstallerBaseName {
   [CmdletBinding()]
-  param([Parameter(Mandatory = $true)][string]$Version)
+  param(
+    [Parameter(Mandatory = $true)][string]$Version,
+    [ValidateSet("x64", "arm64")][string]$Architecture = "x64"
+  )
 
   if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
     throw "Release version '$Version' must use x.y.z format."
   }
-  return "ClickFlow-$Version-win64-setup"
+  $platform = if ($Architecture -eq "arm64") { "win-arm64" } else { "win64" }
+  return "ClickFlow-$Version-$platform-setup"
 }
 
 function Resolve-ClickFlowExecutable {

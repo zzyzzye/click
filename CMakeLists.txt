@@ -13,7 +13,7 @@ set(CMAKE_AUTORCC ON)
 
 include(CTest)
 
-if(APPLE)
+if(APPLE AND NOT CMAKE_PREFIX_PATH AND NOT DEFINED ENV{CMAKE_PREFIX_PATH})
   foreach(qt_prefix IN ITEMS
       /opt/homebrew/opt/qt
       /usr/local/opt/qt
@@ -154,8 +154,11 @@ elseif(WIN32)
     src/platform/windows/WindowsWindowService.h
     src/platform/windows/WindowsWindowStyle.h
   )
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  find_package(X11 REQUIRED COMPONENTS Xtst)
+  list(APPEND PLATFORM_SOURCES src/platform/linux/LinuxServices.cpp)
 else()
-  message(FATAL_ERROR "ClickFlow supports only macOS and Windows.")
+  message(FATAL_ERROR "ClickFlow 仅支持 macOS、Windows 和 Linux。")
 endif()
 
 add_executable(ClickFlow MACOSX_BUNDLE
@@ -175,10 +178,50 @@ if(APPLE)
     "-framework ApplicationServices"
     "-framework Carbon"
   )
+  target_sources(ClickFlow PRIVATE src/app/resources/ClickFlow.icns)
+  set_source_files_properties(src/app/resources/ClickFlow.icns PROPERTIES
+    MACOSX_PACKAGE_LOCATION Resources)
+  set_target_properties(ClickFlow PROPERTIES
+    MACOSX_BUNDLE_ICON_FILE ClickFlow.icns
+    MACOSX_BUNDLE_GUI_IDENTIFIER com.clickflow.ClickFlow
+    MACOSX_BUNDLE_BUNDLE_NAME ClickFlow
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}")
 elseif(WIN32)
   set_target_properties(ClickFlow PROPERTIES WIN32_EXECUTABLE TRUE)
   target_link_libraries(ClickFlow PRIVATE user32 dwmapi)
   target_link_options(ClickFlow PRIVATE /MANIFEST:NO)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  target_link_libraries(ClickFlow PRIVATE X11::X11 X11::Xtst)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  install(TARGETS ClickFlow RUNTIME DESTINATION bin)
+  install(FILES installer/ClickFlow.desktop DESTINATION share/applications)
+  install(FILES src/app/resources/ClickFlow.png DESTINATION share/pixmaps)
+  set(CPACK_PACKAGE_NAME clickflow)
+  set(CPACK_PACKAGING_INSTALL_PREFIX /usr)
+  set(CPACK_PACKAGE_VENDOR ClickFlow)
+  set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+  set(CPACK_DEBIAN_PACKAGE_MAINTAINER ClickFlow)
+  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "ClickFlow X11 desktop input automation")
+  set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+  set(CPACK_DEBIAN_PACKAGE_DEPENDS "qt6-qpa-plugins, libqt6svg6")
+  set(CPACK_DEBIAN_PACKAGE_SECTION utils)
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    set(CLICKFLOW_PACKAGE_ARCH arm64)
+  else()
+    set(CLICKFLOW_PACKAGE_ARCH x64)
+  endif()
+  set(CPACK_PACKAGE_FILE_NAME "ClickFlow-${PROJECT_VERSION}-linux-${CLICKFLOW_PACKAGE_ARCH}")
+  include(CPack)
+  add_executable(ClickFlowLinuxServicesTests
+    tests/LinuxServicesTests.cpp src/platform/linux/LinuxServices.cpp)
+  target_include_directories(ClickFlowLinuxServicesTests PRIVATE src)
+  target_link_libraries(ClickFlowLinuxServicesTests PRIVATE
+    ClickFlowCore Qt6::Test Qt6::Widgets X11::X11 X11::Xtst)
+  add_test(NAME LinuxServices COMMAND ClickFlowLinuxServicesTests)
+  set_tests_properties(LinuxServices PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=xcb")
 endif()
 
 add_executable(ClickFlowTests
@@ -380,6 +423,7 @@ add_executable(ClickFlowUpdateControllerTests
 target_include_directories(ClickFlowUpdateControllerTests PRIVATE src)
 target_link_libraries(ClickFlowUpdateControllerTests PRIVATE
   Qt6::Core
+  Qt6::Gui
   Qt6::Network
   Qt6::Test
 )

@@ -21,16 +21,16 @@ ClickFlow 是一个基于 Qt 6 Widgets 和 C++20 的桌面输入自动化工具�
 
 ## 平台支持
 
-| 能力 | Windows 10/11 x64 | macOS |
-|---|---:|---:|
-| 自动连点 | ✅ | ✅ |
-| 全局热键 | ✅ | ✅ |
-| 配置预设 | ✅ | ✅ |
-| 键鼠宏录制与回放 | ✅ | — |
-| 目标窗口绑定 | ✅ | — |
-| 图形化安装包 | ✅ | — |
+| 能力 | Windows x64 / ARM64 | macOS ARM64（M 系列） | Linux x64 / ARM64（X11） |
+|---|---:|---:|---:|
+| 自动连点 | ✅ | ✅ | ✅ |
+| 全局热键 | ✅ | ✅ | ✅ |
+| 配置预设 | ✅ | ✅ | ✅ |
+| 键鼠宏录制与回放 | ✅ | — | — |
+| 目标窗口绑定 | ✅ | — | — |
+| 安装包格式 | EXE | DMG | DEB |
 
-Windows 是当前主要发布平台。macOS 可以从源码构建，但尚未提供键鼠宏和正式安装包。
+提供五种 64 位构建目标，不提供 32 位版本。Windows x64 面向 Windows 10/11，ARM64 面向 Windows 11 on Arm；macOS 面向 M 系列芯片；Linux DEB 基于 Ubuntu 24.04，依赖系统 Qt，桌面全局输入需要 X11/Xorg 会话，不支持 Wayland 全局输入。宏录制、回放与目标窗口绑定目前仍为 Windows 专属。
 
 ## 下载安装
 
@@ -39,9 +39,13 @@ Windows 用户可从 [Releases](https://github.com/zzyzzye/click/releases) 下�
 ```text
 ClickFlow-<version>-win64-setup.exe
 ClickFlow-<version>-win64-setup.exe.sha256
+ClickFlow-<version>-win-arm64-setup.exe
+ClickFlow-<version>-macos-arm64.dmg
+ClickFlow-<version>-linux-x64.deb
+ClickFlow-<version>-linux-arm64.deb
 ```
 
-安装器面向 Windows 10/11 x64，为所有用户安装到 `Program Files\ClickFlow`，并在安装和卸载时请求 UAC。开始菜单和桌面快捷方式均为可选项；安装后可从“设置 → 应用”或控制面板“程序和功能”卸载。
+Windows 安装器为所有用户安装到 `Program Files\ClickFlow`，并在安装和卸载时请求 UAC。开始菜单和桌面快捷方式均为可选项；安装后可从“设置 → 应用”或控制面板“程序和功能”卸载。macOS 打开 DMG 后将应用拖入 Applications；该包只有临时签名，未经开发者签名与 Apple 公证。Linux 可用 `sudo apt install ./ClickFlow-<version>-linux-<arch>.deb` 安装并解析依赖。
 
 当前安装包未进行代码签名，Windows SmartScreen 可能显示“未知发布者”。建议在安装前核对 Release 附带的 SHA-256 文件。
 
@@ -83,7 +87,7 @@ ClickFlow-<version>-win64-setup.exe.sha256
 
 - CMake 3.24 或更高版本；
 - 支持 C++20 的编译器；
-- Qt 6.8.3，包含 `Widgets` 和 `Test` 组件。
+- Windows/macOS 打包使用 Qt 6.8.3；Linux 使用 Ubuntu 24.04 的系统 Qt 6.4，包含 `Widgets`、`Network` 和 `Test` 组件。
 
 项目版本由顶层 `CMakeLists.txt` 中的 `project(ClickFlow VERSION ...)` 提供，并自动写入应用版本、Windows 文件资源和安装包名称。
 
@@ -152,20 +156,32 @@ cmake --build build/windows-msvc-debug --config Release --parallel
   -Configuration Release
 ```
 
-脚本会复制 `ClickFlow.exe`，运行 `windeployqt`，并补齐 Qt 插件与 x64 VC++ Runtime。便携目录不会注册控制面板卸载入口。
+脚本会复制 `ClickFlow.exe`，运行 `windeployqt`，并补齐 Qt 插件与对应架构 VC++ Runtime。ARM64 使用 `-Architecture arm64` 参数和 ARM64 Qt 路径。便携目录不会注册控制面板卸载入口。
 
 ### 安装包
 
 仓库的 [Windows 安装包工作流](https://github.com/zzyzzye/click/actions/workflows/windows-package.yml) 使用 GitHub 托管的 Windows Runner 完成以下工作：
 
-1. 准备 Qt 6.8.3 MSVC x64；
+1. 分别准备 Qt 6.8.3 MSVC x64 和 ARM64；
 2. 构建 Release；
 3. 执行完整 CTest 测试集；
 4. 部署 Qt 和 VC++ 运行库；
 5. 使用 Inno Setup 编译安装器；
-6. 生成 SHA-256 并上传 `ClickFlow-Windows-x64` artifact。
+6. 生成 SHA-256 并分别上传 `ClickFlow-Windows-x64` 和 `ClickFlow-Windows-arm64` artifact。
 
 该工作流仅支持手动触发，不会创建标签或自动发布 Release。正式发布时应从 `v<version>` 标签触发，确保安装包对应不可变的源码版本。
+
+### macOS 与 Linux GitHub 打包
+
+在 Actions 页面手动运行“macOS 安装包”或“Linux 安装包”，选择要构建的分支或标签。成功后进入 Summary → Artifacts 下载；这些工作流同样不会自动发布 Release。
+
+也可以只运行“全平台安装包”，一次触发三个平台的五种架构任务，并在同一个 Summary 页面下载五份产物。
+
+- macOS：`macos-15` ARM64 Runner，运行 `bash scripts/build-macos-release.sh`，面向 macOS 14 或更新版本的 M 系列芯片，产物为 `ClickFlow-macOS-arm64`，含 DMG 和 SHA-256。
+- Linux：`ubuntu-24.04` 与 `ubuntu-24.04-arm`，运行 `bash scripts/build-linux-release.sh`，产物为 `ClickFlow-Linux-x64` / `ClickFlow-Linux-arm64`，含 DEB 和 SHA-256。
+- 图形测试使用 `QT_QPA_PLATFORM=offscreen`，Linux 输入测试使用 Xvfb，不在真实桌面模拟输入。
+
+Linux 本地构建前安装 `cmake ninja-build g++ qt6-base-dev qt6-svg-dev qt6-qpa-plugins libx11-dev libxtst-dev xvfb xauth dpkg-dev file`。macOS 打包需要 Ninja、Qt 和 `macdeployqt`。
 
 ## 维护者发布流程
 
@@ -199,4 +215,4 @@ git push origin "v$version"
 - Windows 全局热键依赖 `RegisterHotKey`，已被其他程序占用的组合无法注册；
 - Windows 输入回放依赖 `SendInput`，目标程序可能主动拒绝模拟输入；
 - macOS 需要授予“辅助功能”权限才能发出全局点击事件；
-- macOS 当前不支持键鼠宏录制、目标窗口绑定或官方安装包。
+- macOS 与 Linux 当前不支持键鼠宏录制、目标窗口绑定；Linux 全局输入仅支持 X11。

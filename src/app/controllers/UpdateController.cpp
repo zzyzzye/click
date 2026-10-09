@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
+#include <QDesktopServices>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -21,6 +22,14 @@ constexpr auto kLatestReleasePage =
 
 QString userAgent() {
   return "ClickFlow/" + QCoreApplication::applicationVersion();
+}
+
+QString installerSuffix() {
+#if defined(Q_OS_WIN) && defined(Q_PROCESSOR_ARM_64)
+  return "-win-arm64-setup.exe";
+#else
+  return "-win64-setup.exe";
+#endif
 }
 
 QNetworkRequest createRequest(const QUrl& url) {
@@ -59,6 +68,11 @@ void UpdateController::handleAction() {
 }
 
 void UpdateController::checkForUpdates() {
+#if !defined(Q_OS_WIN)
+  QDesktopServices::openUrl(QUrl(kLatestReleasePage));
+  emit statusChanged("更新：请在 Release 页面下载当前平台的新版本。");
+  return;
+#endif
   emit statusChanged("更新：正在检查…");
   emit actionChanged("检查中…", false);
 
@@ -97,8 +111,8 @@ void UpdateController::checkForUpdates() {
       const auto asset = value.toObject();
       const QString name = asset.value("name").toString();
       const QUrl url(asset.value("browser_download_url").toString());
-      if (name.endsWith("-win64-setup.exe")) installerUrl = url;
-      if (name.endsWith("-win64-setup.exe.sha256")) checksumUrl = url;
+      if (name.endsWith(installerSuffix())) installerUrl = url;
+      if (name.endsWith(installerSuffix() + ".sha256")) checksumUrl = url;
     }
     if (!installerUrl.isValid() || !checksumUrl.isValid()) {
       resetAction("更新：找到新版本，但没有找到 Windows 安装包。",
@@ -138,8 +152,7 @@ void UpdateController::checkForUpdatesFromReleasePage() {
     const QString base =
         QString("https://github.com/zzyzzye/click/releases/download/%1/")
             .arg(tag);
-    const QUrl installerUrl(base + "ClickFlow-" + version +
-                            "-win64-setup.exe");
+    const QUrl installerUrl(base + "ClickFlow-" + version + installerSuffix());
     markUpdateAvailable(tag, installerUrl,
                         QUrl(installerUrl.toString() + ".sha256"));
   });

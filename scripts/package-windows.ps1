@@ -10,7 +10,8 @@ param(
   [string]$QtBinDir,
 
   [ValidateSet("Debug", "Release")]
-  [string]$Configuration = "Release"
+  [string]$Configuration = "Release",
+  [ValidateSet("x64", "arm64")][string]$Architecture = "x64"
 )
 
 Set-StrictMode -Version Latest
@@ -25,6 +26,15 @@ $windeployqtPath = Join-Path $resolvedQtBinDir "windeployqt.exe"
 
 $sourceExe = Resolve-ClickFlowExecutable `
   -BuildDir $resolvedBuildDir -Configuration $Configuration
+
+# 校验 PE 架构，避免错误工具链生成的安装包被错误标记。
+$binary = [System.IO.File]::ReadAllBytes($sourceExe)
+$peOffset = [BitConverter]::ToInt32($binary, 0x3c)
+$machine = [BitConverter]::ToUInt16($binary, $peOffset + 4)
+$expectedMachine = if ($Architecture -eq "arm64") { 0xaa64 } else { 0x8664 }
+if ($machine -ne $expectedMachine) {
+  throw "应用 EXE 架构与目标 $Architecture 不一致。"
+}
 
 if (-not (Test-Path -LiteralPath $windeployqtPath -PathType Leaf)) {
   throw "windeployqt.exe was not found in '$resolvedQtBinDir'."
@@ -57,24 +67,27 @@ if ($Configuration -eq "Release" -and
     throw "The Visual Studio Installer helper was not found; the VC runtime could not be staged."
   }
 
+  $toolsComponent = if ($Architecture -eq "arm64") {
+    "Microsoft.VisualStudio.Component.VC.Tools.ARM64"
+  } else { "Microsoft.VisualStudio.Component.VC.Tools.x86.x64" }
   $visualStudioDir = & $vswherePath -latest -products * `
-    -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+    -requires $toolsComponent `
     -property installationPath
   if ($LASTEXITCODE -ne 0 -or -not $visualStudioDir) {
-    throw "A Visual Studio installation with the x64 C++ tools was not found."
+    throw "未找到包含 $Architecture C++ 工具的 Visual Studio。"
   }
 
   $redistRoot = Join-Path $visualStudioDir "VC\Redist\MSVC"
   $runtimeDll = Get-ChildItem -LiteralPath $redistRoot -Filter "vcruntime140.dll" `
       -File -Recurse |
     Where-Object {
-      $_.FullName -match "\\x64\\Microsoft\.VC\d+\.CRT\\vcruntime140\.dll$" -and
+      $_.FullName -match "\\$Architecture\\Microsoft\.VC\d+\.CRT\\vcruntime140\.dll$" -and
       $_.FullName -notmatch "\\onecore\\"
     } |
     Sort-Object { $_.VersionInfo.FileVersionRaw } -Descending |
     Select-Object -First 1
   if (-not $runtimeDll) {
-    throw "The x64 VC runtime directory was not found below '$redistRoot'."
+    throw "未找到 $Architecture VC++ 运行库目录。"
   }
 
   Get-ChildItem -LiteralPath $runtimeDll.DirectoryName -Filter "*.dll" -File |

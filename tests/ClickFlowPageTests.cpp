@@ -20,6 +20,7 @@ class ClickFlowPageTests : public QObject {
 
  private slots:
   void clickSettingsRoundTrip();
+  void keyboardInputKeepsOneCombination();
   void hotkeysRoundTripAndValidate();
   void presetsAndAboutExposeProductState();
   void macroPageKeepsHotkeysVisibleAndEmitsSettings();
@@ -59,6 +60,17 @@ void ClickFlowPageTests::clickSettingsRoundTrip() {
   QCOMPARE(output.alwaysOnTop, true);
   QVERIFY(!page.fixedControlsEnabled());
   QVERIFY(page.repeatCountEnabled());
+}
+
+void ClickFlowPageTests::keyboardInputKeepsOneCombination() {
+  ClickSettingsPage page;
+  ClickProfile input;
+  input.inputMode = InputMode::Keyboard;
+  input.keyboardKey = "Ctrl+A, Ctrl+B";
+  page.setProfile(input);
+  ClickProfile output;
+  page.applyToProfile(output);
+  QCOMPARE(output.keyboardKey, QString("Ctrl+A"));
 }
 
 void ClickFlowPageTests::hotkeysRoundTripAndValidate() {

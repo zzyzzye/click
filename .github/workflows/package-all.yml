@@ -1,0 +1,15 @@
+name: 全平台安装包
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    name: Windows x64 与 ARM64
+    uses: ./.github/workflows/windows-package.yml
+  macos:
+    name: macOS Apple Silicon
+    uses: ./.github/workflows/macos-package.yml
+  linux:
+    name: Linux x64 与 ARM64
+    uses: ./.github/workflows/linux-package.yml

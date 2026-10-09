@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ClickFlow
+Comment=自动连点与全局热键工具（X11）
+Exec=ClickFlow
+Icon=ClickFlow
+Terminal=false
+Categories=Utility;

@@ -1,0 +1,38 @@
+name: Linux 安装包
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  package:
+    name: 构建 Linux ${{ matrix.arch }} 安装包
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: 安装构建与打包依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++ qt6-base-dev qt6-svg-dev qt6-qpa-plugins libx11-dev libxtst-dev xvfb xauth dpkg-dev file
+      - name: 构建、测试并打包
+        run: bash scripts/build-linux-release.sh
+      - name: 上传安装包
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ClickFlow-Linux-${{ matrix.arch }}
+          path: |
+            dist/linux-${{ matrix.arch }}/*.deb
+            dist/linux-${{ matrix.arch }}/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

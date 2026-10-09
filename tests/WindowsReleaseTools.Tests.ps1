@@ -39,6 +39,8 @@ try {
 
   Assert-Equal "ClickFlow-1.2.3-win64-setup" `
     (Get-ClickFlowInstallerBaseName "1.2.3") "Artifact naming failed."
+  Assert-Equal "ClickFlow-1.2.3-win-arm64-setup" `
+    (Get-ClickFlowInstallerBaseName "1.2.3" "arm64") "ARM64 安装包命名错误。"
   Assert-Throws { Get-ClickFlowInstallerBaseName "1.2" } `
     "Non-semantic versions must fail."
 

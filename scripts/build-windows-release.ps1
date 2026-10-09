@@ -4,7 +4,8 @@ param(
   [string]$OutputDir = "",
   [string]$QtBinDir = "",
   [string]$CMakePath = "",
-  [string]$InnoCompilerPath = ""
+  [string]$InnoCompilerPath = "",
+  [ValidateSet("x64", "arm64")][string]$Architecture = "x64"
 )
 
 Set-StrictMode -Version Latest
@@ -61,7 +62,7 @@ function Invoke-CheckedCommand {
 }
 
 if (-not $BuildDir) {
-  $BuildDir = Join-Path $repositoryRoot "build\windows-release"
+  $BuildDir = Join-Path $repositoryRoot "build\windows-$Architecture-release"
 }
 if (-not $OutputDir) {
   $OutputDir = Join-Path $repositoryRoot "dist\release"
@@ -111,15 +112,16 @@ if (-not (Test-Path -LiteralPath $ctestPath -PathType Leaf)) {
 
 $version = Get-ClickFlowProjectVersion `
   (Join-Path $repositoryRoot "CMakeLists.txt")
-$artifactBaseName = Get-ClickFlowInstallerBaseName $version
+$artifactBaseName = Get-ClickFlowInstallerBaseName $version $Architecture
 $installerPath = Join-Path $resolvedOutputDir ($artifactBaseName + ".exe")
 $hashPath = $installerPath + ".sha256"
 
 New-Item -ItemType Directory -Path $resolvedBuildDir -Force | Out-Null
 New-Item -ItemType Directory -Path $resolvedOutputDir -Force | Out-Null
 
+$cmakeArchitecture = if ($Architecture -eq "arm64") { "ARM64" } else { "x64" }
 Invoke-CheckedCommand "Configure CMake" {
-  & $resolvedCMakePath -S $repositoryRoot -B $resolvedBuildDir -A x64 `
+  & $resolvedCMakePath -S $repositoryRoot -B $resolvedBuildDir -A $cmakeArchitecture `
     "-DCMAKE_PREFIX_PATH=$qtRoot"
 }
 Invoke-CheckedCommand "Build ClickFlow Release" {
@@ -141,7 +143,7 @@ Write-Output "==> Stage the Windows runtime"
   -BuildDir $resolvedBuildDir `
   -OutputDir $stagingApp `
   -QtBinDir $resolvedQtBinDir `
-  -Configuration Release
+  -Configuration Release -Architecture $Architecture
 if ($LASTEXITCODE -ne 0) {
   throw "Runtime staging failed with exit code $LASTEXITCODE."
 }
@@ -152,6 +154,7 @@ Remove-Item -LiteralPath $hashPath -Force -ErrorAction SilentlyContinue
 Invoke-CheckedCommand "Compile the Inno Setup installer" {
   & $resolvedInnoPath `
     "/DAppVersion=$version" `
+    "/DAppArchitecture=$Architecture" `
     "/DSourceDir=$stagingApp" `
     "/DOutputDir=$resolvedOutputDir" `
     (Join-Path $repositoryRoot "installer\ClickFlow.iss")

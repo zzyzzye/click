@@ -2,14 +2,25 @@ name: Windows 安装包
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
   package:
-    name: 构建 Windows x64 安装包
-    runs-on: windows-2025
+    name: 构建 Windows ${{ matrix.arch }} 安装包
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-2025
+            qt: win64_msvc2022_64
+          - arch: arm64
+            runner: windows-11-arm
+            qt: win64_msvc2022_arm64
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
 
     steps:
@@ -22,14 +33,14 @@ jobs:
           version: '6.8.3'
           host: windows
           target: desktop
-          arch: win64_msvc2022_64
+          arch: ${{ matrix.qt }}
           cache: true
 
       - name: 构建、测试并生成安装包
         shell: pwsh
         run: |
           $qtBinDir = Join-Path $env:QT_ROOT_DIR 'bin'
-          .\scripts\build-windows-release.ps1 -QtBinDir $qtBinDir
+          .\scripts\build-windows-release.ps1 -QtBinDir $qtBinDir -Architecture '${{ matrix.arch }}'
 
       - name: 写入工作流摘要
         shell: pwsh
@@ -54,7 +65,7 @@ jobs:
       - name: 上传安装包产物
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ClickFlow-Windows-x64
+          name: ClickFlow-Windows-${{ matrix.arch }}
           path: |
             dist/release/*.exe
             dist/release/*.sha256

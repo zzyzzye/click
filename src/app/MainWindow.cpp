@@ -1,5 +1,7 @@
 #include "app/MainWindow.h"
 
+#include <QApplication>
+
 #include <QAbstractSpinBox>
 #include <QComboBox>
 #include <QDateTime>
