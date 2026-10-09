@@ -188,16 +188,20 @@ Linux 本地构建前安装 `cmake ninja-build g++ qt6-base-dev qt6-svg-dev qt6-
 1. 在 `CMakeLists.txt` 更新 `project(ClickFlow VERSION ...)`，并运行完整测试；
 2. 提交版本变更并推送目标分支；
 3. 创建并推送带注释的版本标签；
-4. 在 Actions 页面手动运行“Windows 安装包”，构建来源选择该标签；
-5. 下载 `ClickFlow-Windows-x64` artifact，并核对安装包版本和 SHA-256；
-6. 基于同一标签创建 GitHub Release，上传 EXE 和 `.sha256`；
-7. 在允许安装软件的 Windows 电脑验证安装、覆盖升级和卸载。
+4. 推送标签自动触发“版本发布草稿”，核对版本和说明后打包五种平台与架构；
+5. 全部构建成功后，自动核对 SHA-256，创建草稿 Release 并上传五个安装包及校验文件；
+6. 在 GitHub Releases 检查中文说明和附件，并在对应系统验证安装、升级和卸载；
+7. 检查通过后点击 Publish release 正式发布。
+
+推送标签前，必须在 `docs/releases/v<version>.md` 写好该版本的中文发布说明。标题自动使用 `ClickFlow v<version>`，正文直接读取该文件。缺少说明或标签与项目版本不一致时，会在打包前停止。手动运行打包工作流仍只生成 Artifacts。
+
+重跑失败任务会复用已经成功的打包任务；已有草稿会更新说明和同名附件。自动流程拒绝覆盖已经正式发布的 Release。若重新运行全部任务，则五种安装包都会重新构建。
 
 标签示例：
 
 ```powershell
 $version = '<version>'
-git tag -a "v$version" -m "release: 发布v$version"
+git tag -a "v$version" -m "发布：v$version"
 git push origin "v$version"
 ```
 
