@@ -16,9 +16,11 @@ jobs:
         include:
           - arch: x64
             runner: windows-2025
+            qt-host: windows
             qt: win64_msvc2022_64
           - arch: arm64
             runner: windows-11-arm
+            qt-host: windows_arm64
             qt: win64_msvc2022_arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
@@ -31,7 +33,7 @@ jobs:
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
         with:
           version: '6.8.3'
-          host: windows
+          host: ${{ matrix.qt-host }}
           target: desktop
           arch: ${{ matrix.qt }}
           cache: true
