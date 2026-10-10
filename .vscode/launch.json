@@ -2,6 +2,15 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug: ClickFlow (macOS)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/ClickFlow.app/Contents/MacOS/ClickFlow",
+            "args": [],
+            "cwd": "${workspaceFolder}/build",
+            "preLaunchTask": "CMake: Build ClickFlow (macOS)"
+        },
+        {
             "name": "Debug: ClickFlow (Windows)",
             "type": "cppvsdbg",
             "request": "launch",
@@ -17,18 +26,6 @@
             ],
             "console": "integratedTerminal",
             "preLaunchTask": "CMake: Build ClickFlow (Windows)"
-        },
-        {
-            "name": "Debug: ClickFlow (macOS)",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/ClickFlow.app/Contents/MacOS/ClickFlow",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build",
-            "MIMode": "lldb",
-            "console": "integratedTerminal",
-            "preLaunchTask": "CMake: Build ClickFlow (macOS)"
         }
     ]
 }

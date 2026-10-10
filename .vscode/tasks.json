@@ -4,10 +4,10 @@
     {
       "label": "CMake: Configure (Windows)",
       "type": "process",
-      "command": "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe",
+      "command": "cmake",
       "args": [
         "--preset",
-        "windows-local"
+        "windows-vs2026-debug"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -20,24 +20,25 @@
     {
       "label": "CMake: Build ClickFlow (Windows)",
       "type": "process",
-      "command": "C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe",
+      "command": "cmake",
       "args": [
         "--build",
         "--preset",
         "windows-vs2026-build",
         "--target",
-        "QtClicker"
+        "ClickFlow"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
       "problemMatcher": [
         "$gcc"
-      ]
+      ],
+      "dependsOn": "CMake: Configure (Windows)"
     },
     {
       "label": "CMake: Configure (macOS)",
-      "type": "shell",
+      "type": "process",
       "command": "cmake",
       "args": [
         "--preset",
@@ -53,14 +54,14 @@
     },
     {
       "label": "CMake: Build ClickFlow (macOS)",
-      "type": "shell",
+      "type": "process",
       "command": "cmake",
       "args": [
         "--build",
         "--preset",
         "build",
         "--target",
-        "QtClicker"
+        "ClickFlow"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -68,7 +69,11 @@
       "problemMatcher": [
         "$gcc"
       ],
-      "group": "build"
+      "dependsOn": "CMake: Configure (macOS)",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
     }
   ]
 }
