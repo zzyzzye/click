@@ -3,7 +3,7 @@
 #include <QColor>
 #include <QString>
 
-// Fluent 浅色设计令牌：全部 UI 颜色、圆角、控件高度的唯一来源。
+// ClickFlow 浅色内容区与品牌侧栏令牌，配合 UiStyle.cpp 管理共享样式。
 struct ThemeTokens {
   QColor accent;                    // #0067C0
   QColor accentHover;               // #1975C5
@@ -19,13 +19,16 @@ struct ThemeTokens {
   QColor controlBackgroundPressed;  // #F5F5F5
   QColor navItemHover;              // rgba(255,255,255,0.50)
   QColor navItemSelected;           // rgba(255,255,255,0.70)
-  int controlRadius = 4;
-  int cardRadius = 8;
+  int controlRadius = 8;
+  int cardRadius = 14;
   int controlHeight = 32;
+  QColor sidebarBackground = QColor("#15243B");
+  QColor sidebarText = QColor("#CAD5E5");
+  QColor sidebarAccent = QColor("#69D2FF");
 };
 
 // 全局唯一浅色令牌实例。
 const ThemeTokens& fluentLightTokens();
 
-// translucent=true 时窗口与侧边栏背景透明（透出 Mica），否则回退不透明浅色。
+// translucent=true 时内容区透出 Mica；品牌侧栏始终保持深蓝色。
 QString clickFlowStyleSheet(bool translucent = false);

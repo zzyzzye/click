@@ -18,6 +18,10 @@ StatusStrip::StatusStrip(QWidget* parent) : QFrame(parent) {
           &StatusStrip::permissionRequestRequested);
   statusLabel_ = new QLabel("空闲", this);
   progressLabel_ = new QLabel("就绪", this);
+  progressLabel_->setObjectName("progressLabel");
+  statusLabel_->setWordWrap(true);
+  permissionLabel_->setWordWrap(true);
+  progressLabel_->setWordWrap(true);
   layout->addWidget(permissionLabel_);
   layout->addWidget(permissionButton_);
   layout->addStretch();

@@ -26,7 +26,11 @@ QFrame* card(const QString& title, QWidget* parent, QGridLayout** grid) {
   return frame;
 }
 void addRow(QGridLayout* grid, int row, const QString& label, QWidget* control) {
-  grid->addWidget(new QLabel(label), row, 0);
+  auto* caption = new QLabel(label);
+  caption->setObjectName(control->objectName() + "Label");
+  caption->setBuddy(control);
+  control->setAccessibleName(label);
+  grid->addWidget(caption, row, 0);
   grid->addWidget(control, row, 1);
 }
 }
@@ -47,6 +51,7 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   inputMode_->addItem("鼠标", int(InputMode::Mouse));
   inputMode_->addItem("键盘", int(InputMode::Keyboard));
   keyboardKey_ = new QKeySequenceEdit(this);
+  keyboardKey_->setObjectName("keyboardKeyEdit");
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
   keyboardKey_->setMaximumSequenceLength(1);
 #else
@@ -59,6 +64,7 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   keyboardKey_->setKeySequence(QKeySequence(Qt::Key_Space));
   keyboardKey_->setToolTip("键盘模式下将重复发送这个按键。");
   button_ = new QComboBox(this);
+  button_->setObjectName("mouseButtonCombo");
   button_->addItem("左键", int(ClickButton::Left));
   button_->addItem("右键", int(ClickButton::Right));
   targetMode_ = new QComboBox(this);
@@ -66,6 +72,7 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   targetMode_->addItem("跟随鼠标", int(TargetMode::FollowCursor));
   targetMode_->addItem("固定坐标", int(TargetMode::FixedPoint));
   auto* coordinates = new QWidget(this);
+  coordinates->setObjectName("fixedCoordinates");
   auto* coordinateLayout = new QHBoxLayout(coordinates);
   coordinateLayout->setContentsMargins(0, 0, 0, 0);
   fixedX_ = new QSpinBox(this); fixedX_->setRange(-100000, 100000); fixedX_->setPrefix("X ");
@@ -159,6 +166,15 @@ QString ClickSettingsPage::summary() const {
 }
 void ClickSettingsPage::updateDependencies() {
   const bool keyboard = inputMode_->currentData().toInt() == int(InputMode::Keyboard);
+  const auto showRow = [this](QWidget* control, bool visible) {
+    control->setVisible(visible);
+    if (auto* label = findChild<QLabel*>(control->objectName() + "Label")) {
+      label->setVisible(visible);
+    }
+  };
+  showRow(keyboardKey_, keyboard);
+  showRow(button_, !keyboard);
+  showRow(targetMode_, !keyboard);
   keyboardKey_->setEnabled(keyboard);
   keyboardKey_->setToolTip(keyboard ? "键盘模式下将重复发送这个按键。"
                                   : "选择“键盘”连点类型后可设置按键。");
@@ -168,6 +184,7 @@ void ClickSettingsPage::updateDependencies() {
   targetMode_->setToolTip(keyboard ? "键盘模式下不使用鼠标点击位置。"
                                   : "选择跟随鼠标或固定坐标。");
   const bool fixed = targetMode_->currentData().toInt() == int(TargetMode::FixedPoint);
+  showRow(fixedX_->parentWidget(), !keyboard && fixed);
   fixedX_->setEnabled(!keyboard && fixed);
   fixedY_->setEnabled(!keyboard && fixed);
   capture_->setEnabled(!keyboard && fixed);
@@ -178,6 +195,7 @@ void ClickSettingsPage::updateDependencies() {
   fixedY_->setToolTip(coordinateHint);
   capture_->setToolTip(coordinateHint);
   const bool finite = repeatMode_->currentData().toInt() == int(RepeatMode::Finite);
+  showRow(repeatCount_, finite);
   repeatCount_->setEnabled(finite);
   repeatCount_->setToolTip(finite ? "设置需要执行的总次数。"
                                   : "选择“有限次数”后可设置点击次数。");

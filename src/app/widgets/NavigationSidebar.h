@@ -27,6 +27,7 @@ class NavigationSidebar final : public QFrame {
 
  signals:
   void pageSelected(ShellPage page);
+  void reduceMotionChanged(bool reduced);
 
  private:
   QLabel* productLabel_ = nullptr;

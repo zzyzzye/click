@@ -73,7 +73,7 @@ void ProductShellTests::navDelegatePaintsFluentSelectionIndicator() {
 
   // 指示条：左侧 x+4、宽 3、高 16、垂直居中 → 中心采样点 (5, 18)
   const QColor indicator = canvas.toImage().pixelColor(5, 18);
-  const QColor accent = fluentLightTokens().accent;
+  const QColor accent = fluentLightTokens().sidebarAccent;
   QCOMPARE(indicator.red(), accent.red());
   QCOMPARE(indicator.green(), accent.green());
   QCOMPARE(indicator.blue(), accent.blue());
@@ -84,7 +84,7 @@ void ProductShellTests::navDelegateUsesFluentRowHeight() {
   auto* delegate = new NavItemDelegate(&list);
   new QListWidgetItem(QStringLiteral("连点设置"), &list);
   QStyleOptionViewItem option;
-  QCOMPARE(delegate->sizeHint(option, list.model()->index(0, 0)).height(), 36);
+  QCOMPARE(delegate->sizeHint(option, list.model()->index(0, 0)).height(), 44);
 }
 
 void ProductShellTests::captionBarExposesWindowControls() {

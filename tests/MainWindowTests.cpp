@@ -2,6 +2,10 @@
 #include <QComboBox>
 #include <QFile>
 #include <QLabel>
+#include <QLineEdit>
+#include <QDir>
+#include <QPropertyAnimation>
+#include <QGraphicsOpacityEffect>
 #include <QListWidget>
 #include <QPushButton>
 #include <QScrollArea>
@@ -162,6 +166,11 @@ class MainWindowTests : public QObject {
   void smoothScrollUsesContinuousWheelTarget();
   void smoothScrollClampsAtBoundaries();
   void wheelOverComboScrollsTheSettingsPage();
+  void wheelOverSpinBoxScrollsWithoutChangingValue_data();
+  void wheelOverSpinBoxScrollsWithoutChangingValue();
+  void rapidWheelInputAccumulatesAndReverses();
+  void pagesRemainReachableAtMinimumSize();
+  void reducedMotionCancelsPageTransition();
   void macroServicesRecordPersistAndReplay();
   void startsWithGlobalHotkeysDisabled();
   void globalHotkeysRequireManualActivation();
@@ -336,6 +345,10 @@ void MainWindowTests::usesPersistentClickFlowShell() {
 void MainWindowTests::controlChevronResourcesAreAvailable() {
   QVERIFY(QFile::exists(":/clickflow/icons/chevron-down.svg"));
   QVERIFY(QFile::exists(":/clickflow/icons/chevron-up.svg"));
+  QVERIFY(!QPixmap(":/clickflow/icons/chevron-down.png").isNull());
+  QVERIFY(!QPixmap(":/clickflow/icons/chevron-up.png").isNull());
+  QVERIFY(!QPixmap(":/clickflow/icons/check.png").isNull());
+  QVERIFY(!QPixmap(":/clickflow/icons/ClickFlow.png").isNull());
 }
 
 void MainWindowTests::usesClickFlowControlChrome() {
@@ -351,8 +364,8 @@ void MainWindowTests::usesClickFlowControlChrome() {
   QVERIFY(style.contains("QComboBox::down-arrow"));
   QVERIFY(style.contains("QSpinBox::up-button"));
   QVERIFY(style.contains("QSpinBox::down-button"));
-  QVERIFY(style.contains(":/clickflow/icons/chevron-down.svg"));
-  QVERIFY(style.contains(":/clickflow/icons/chevron-up.svg"));
+  QVERIFY(style.contains(":/clickflow/icons/chevron-down.png"));
+  QVERIFY(style.contains(":/clickflow/icons/chevron-up.png"));
   QVERIFY(compactStyle.contains(
       "#sidebarNavigation { background: transparent; border: none;"));
 }
@@ -445,6 +458,147 @@ void MainWindowTests::wheelOverComboScrollsTheSettingsPage() {
   QVERIFY(QCoreApplication::sendEvent(combo, &event));
   QTRY_VERIFY_WITH_TIMEOUT(bar->value() > bar->minimum(), 500);
   QCOMPARE(combo->currentIndex(), selectedIndex);
+}
+
+void MainWindowTests::wheelOverSpinBoxScrollsWithoutChangingValue_data() {
+  QTest::addColumn<bool>("overEditor");
+  QTest::addColumn<bool>("pixelInput");
+  QTest::newRow("滚轮在数字框") << false << false;
+  QTest::newRow("滚轮在文本区域") << true << false;
+  QTest::newRow("触控板在数字框") << false << true;
+  QTest::newRow("触控板在文本区域") << true << true;
+}
+
+void MainWindowTests::wheelOverSpinBoxScrollsWithoutChangingValue() {
+  QFETCH(bool, overEditor);
+  QFETCH(bool, pixelInput);
+  auto repository = std::make_unique<SettingsRepository>(
+      "ClickFlow", "ClickFlowWheelTest-" + QUuid::createUuid().toString());
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::make_unique<MainWindowFakeHotkeyService>(),
+                    std::move(repository));
+  window.resize(820, 560);
+  window.show();
+  QCoreApplication::processEvents();
+  auto* pages = window.findChild<QStackedWidget*>("contentPages");
+  auto* scroll = dynamic_cast<SmoothScrollArea*>(pages->currentWidget());
+  auto* spin = window.findChild<QSpinBox*>("fixedXSpin");
+  // 固定坐标模式下数字框可编辑，包含获得焦点的场景。
+  auto* combo = window.findChild<QComboBox*>("targetModeCombo");
+  combo->setCurrentIndex(combo->findData(int(TargetMode::FixedPoint)));
+  spin->setFocus();
+  QWidget* receiver = spin;
+  if (overEditor) receiver = spin->findChild<QLineEdit*>();
+  QVERIFY(receiver);
+  auto* bar = scroll->verticalScrollBar();
+  QVERIFY(bar->maximum() > 0);
+  bar->setValue(0);
+  const int value = spin->value();
+  QWheelEvent event(receiver->rect().center(),
+                    receiver->mapToGlobal(receiver->rect().center()),
+                    pixelInput ? QPoint(0, -19) : QPoint(),
+                    pixelInput ? QPoint() : QPoint(0, -120),
+                    Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+  QCoreApplication::sendEvent(receiver, &event);
+  QVERIFY(event.isAccepted());
+  QTRY_VERIFY_WITH_TIMEOUT(bar->value() > 0, 500);
+  QCOMPARE(spin->value(), value);
+}
+
+void MainWindowTests::rapidWheelInputAccumulatesAndReverses() {
+  SmoothScrollArea scroll;
+  auto* content = new QWidget;
+  content->setFixedSize(200, 1000);
+  scroll.setWidget(content);
+  scroll.resize(200, 200);
+  scroll.show();
+  QCoreApplication::processEvents();
+  auto* bar = scroll.verticalScrollBar();
+  for (int i = 0; i < 3; ++i) {
+    QWheelEvent event(QPointF(40, 40), QPointF(40, 40), QPoint(), QPoint(0, -120),
+                      Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+    QCoreApplication::sendEvent(scroll.viewport(), &event);
+  }
+  QTRY_COMPARE_WITH_TIMEOUT(bar->value(), 111, 500);
+  QWheelEvent reverse(QPointF(40, 40), QPointF(40, 40), QPoint(), QPoint(0, 120),
+                      Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+  QCoreApplication::sendEvent(scroll.viewport(), &reverse);
+  QTRY_COMPARE_WITH_TIMEOUT(bar->value(), 74, 500);
+  bar->setValue(0);
+  QWheelEvent down(QPointF(40, 40), QPointF(40, 40), QPoint(), QPoint(0, -120),
+                   Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+  QWheelEvent up(QPointF(40, 40), QPointF(40, 40), QPoint(), QPoint(0, 120),
+                 Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+  QCoreApplication::sendEvent(scroll.viewport(), &down);
+  QCoreApplication::sendEvent(scroll.viewport(), &up);
+  QTest::qWait(200);
+  QCOMPARE(bar->value(), 0);
+}
+
+void MainWindowTests::pagesRemainReachableAtMinimumSize() {
+  auto repository = std::make_unique<SettingsRepository>(
+      "ClickFlow", "ClickFlowLayoutTest-" + QUuid::createUuid().toString());
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::make_unique<MainWindowFakeHotkeyService>(),
+                    std::move(repository));
+  window.show();
+  auto* sidebar = window.findChild<NavigationSidebar*>();
+  auto* pages = window.findChild<QStackedWidget*>("contentPages");
+  for (const QSize size : {QSize(820, 560), QSize(960, 680)}) {
+    window.resize(size);
+    for (int index = 0; index < pages->count(); ++index) {
+      sidebar->setCurrentPage(static_cast<ShellPage>(index));
+      QCoreApplication::processEvents();
+      QTRY_VERIFY_WITH_TIMEOUT(!pages->graphicsEffect()->isEnabled(), 500);
+      auto* scroll = dynamic_cast<SmoothScrollArea*>(pages->currentWidget());
+      QVERIFY(scroll);
+      QVERIFY(scroll->widget()->minimumSizeHint().width() <= scroll->viewport()->width());
+      scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+      QCoreApplication::processEvents();
+      QCOMPARE(scroll->horizontalScrollBar()->maximum(), 0);
+      scroll->verticalScrollBar()->setValue(0);
+      // 使用假输入服务离屏渲染，供人工检查，不触发真实桌面操作。
+      const QString image = QDir::tempPath() +
+          QString("/clickflow-ui-%1-%2.png").arg(size.width()).arg(index);
+      QVERIFY(window.grab().save(image));
+    }
+  }
+}
+
+void MainWindowTests::reducedMotionCancelsPageTransition() {
+  auto repository = std::make_unique<SettingsRepository>(
+      "ClickFlow", "ClickFlowMotionTest-" + QUuid::createUuid().toString());
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::make_unique<MainWindowFakeHotkeyService>(),
+                    std::move(repository));
+  window.show();
+  auto* sidebar = window.findChild<NavigationSidebar*>();
+  auto* pages = window.findChild<QStackedWidget*>("contentPages");
+  auto* motion = window.findChild<QCheckBox*>("reduceMotionCheck");
+  auto* animation = window.findChild<QPropertyAnimation*>("pageTransition");
+  auto* effect = qobject_cast<QGraphicsOpacityEffect*>(pages->graphicsEffect());
+  QVERIFY(motion);
+  QVERIFY(effect);
+  sidebar->setCurrentPage(ShellPage::Hotkeys);
+  sidebar->setCurrentPage(ShellPage::PresetsAbout);
+  motion->setChecked(true);
+  QCOMPARE(animation->state(), QAbstractAnimation::Stopped);
+  QVERIFY(!effect->isEnabled());
+  QCOMPARE(effect->opacity(), 1.0);
+  sidebar->setCurrentPage(ShellPage::ClickSettings);
+  QCOMPARE(pages->currentIndex(), 0);
+  QVERIFY(!effect->isEnabled());
+  auto* scroll = dynamic_cast<SmoothScrollArea*>(pages->currentWidget());
+  auto* bar = scroll->verticalScrollBar();
+  bar->setValue(0);
+  QWheelEvent event(QPointF(40, 40), QPointF(40, 40), QPoint(), QPoint(0, -120),
+                    Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+  QCoreApplication::sendEvent(scroll->viewport(), &event);
+  QCOMPARE(bar->value(), qMin(37, bar->maximum()));
+  motion->setChecked(false);
+  sidebar->setCurrentPage(ShellPage::Hotkeys);
+  QTRY_VERIFY_WITH_TIMEOUT(!effect->isEnabled(), 500);
+  QCOMPARE(effect->opacity(), 1.0);
 }
 
 void MainWindowTests::macroServicesRecordPersistAndReplay() {
@@ -600,6 +754,9 @@ void MainWindowTests::immersiveCaptionIsInstalled() {
 
   auto* caption = window.findChild<CaptionBar*>();
   QVERIFY(caption);
+#if !defined(Q_OS_WIN)
+  QVERIFY(caption->isHidden());
+#endif
   // 无边框走 WM_NCCALCSIZE 方案，不得使用 FramelessWindowHint
   QVERIFY(!window.windowFlags().testFlag(Qt::FramelessWindowHint));
   QCOMPARE(window.windowTitle(), QString("ClickFlow"));

@@ -4,5 +4,8 @@
     <file alias="chevron-down.svg">chevron-down.svg</file>
     <file alias="chevron-up.svg">chevron-up.svg</file>
     <file alias="check.svg">check.svg</file>
+    <file alias="chevron-down.png">chevron-down.png</file>
+    <file alias="chevron-up.png">chevron-up.png</file>
+    <file alias="check.png">check.png</file>
   </qresource>
 </RCC>

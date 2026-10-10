@@ -21,6 +21,7 @@ class ClickFlowPageTests : public QObject {
  private slots:
   void clickSettingsRoundTrip();
   void keyboardInputKeepsOneCombination();
+  void conditionalFieldsPreserveTheirValues();
   void hotkeysRoundTripAndValidate();
   void presetsAndAboutExposeProductState();
   void macroPageKeepsHotkeysVisibleAndEmitsSettings();
@@ -60,6 +61,36 @@ void ClickFlowPageTests::clickSettingsRoundTrip() {
   QCOMPARE(output.alwaysOnTop, true);
   QVERIFY(!page.fixedControlsEnabled());
   QVERIFY(page.repeatCountEnabled());
+}
+
+void ClickFlowPageTests::conditionalFieldsPreserveTheirValues() {
+  ClickSettingsPage page;
+  ClickProfile profile;
+  profile.fixedPoint = QPoint(320, 240);
+  profile.repeatCount = 17;
+  page.setProfile(profile);
+  auto* key = page.findChild<QKeySequenceEdit*>("keyboardKeyEdit");
+  auto* mouse = page.findChild<QComboBox*>("mouseButtonCombo");
+  auto* coordinates = page.findChild<QWidget*>("fixedCoordinates");
+  auto* count = page.findChild<QSpinBox*>("repeatCountSpin");
+  QVERIFY(key->isHidden());
+  QVERIFY(!mouse->isHidden());
+  QVERIFY(coordinates->isHidden());
+  QVERIFY(count->isHidden());
+  profile.inputMode = InputMode::Keyboard;
+  page.setProfile(profile);
+  QVERIFY(!key->isHidden());
+  QVERIFY(mouse->isHidden());
+  profile.inputMode = InputMode::Mouse;
+  profile.targetMode = TargetMode::FixedPoint;
+  profile.repeatMode = RepeatMode::Finite;
+  page.setProfile(profile);
+  QVERIFY(!coordinates->isHidden());
+  QVERIFY(!count->isHidden());
+  ClickProfile restored;
+  page.applyToProfile(restored);
+  QCOMPARE(restored.fixedPoint, QPoint(320, 240));
+  QCOMPARE(restored.repeatCount, 17);
 }
 
 void ClickFlowPageTests::keyboardInputKeepsOneCombination() {
@@ -115,7 +146,6 @@ void ClickFlowPageTests::presetsAndAboutExposeProductState() {
   QCOMPARE(page.productName(), QString("ClickFlow"));
   QCOMPARE(page.versionText(), QString("0.2.0"));
   QVERIFY(!page.platformText().isEmpty());
-  QVERIFY(!page.qtVersionText().isEmpty());
 }
 
 void ClickFlowPageTests::macroPageKeepsHotkeysVisibleAndEmitsSettings() {

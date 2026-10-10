@@ -28,6 +28,8 @@ class NavigationSidebar;
 class PresetsAboutPage;
 class ProfileController;
 class QStackedWidget;
+class QGraphicsOpacityEffect;
+class QPropertyAnimation;
 class SettingsRepository;
 class StatusStrip;
 class UpdateController;
@@ -82,6 +84,9 @@ class MainWindow : public QMainWindow {
   CaptionBar* captionBar_ = nullptr;
   StatusStrip* statusStrip_ = nullptr;
   QStackedWidget* pages_ = nullptr;
+  QGraphicsOpacityEffect* pageOpacity_ = nullptr;
+  QPropertyAnimation* pageTransition_ = nullptr;
+  bool reducedMotion_ = false;
   ClickSettingsPage* clickPage_ = nullptr;
   HotkeySettingsPage* hotkeyPage_ = nullptr;
   MacroRecordingPage* macroPage_ = nullptr;

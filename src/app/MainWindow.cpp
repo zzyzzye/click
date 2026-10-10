@@ -9,6 +9,10 @@
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLineEdit>
+#include <QLabel>
+#include <QGraphicsOpacityEffect>
+#include <QPropertyAnimation>
+#include <QStyle>
 #include <QMessageBox>
 #include <QStackedWidget>
 #include <QVBoxLayout>
@@ -51,17 +55,26 @@ class IgnoreWheelChangeFilter final : public QObject {
     if (event->type() != QEvent::Wheel) {
       return QObject::eventFilter(watched, event);
     }
-    if (auto* combo = qobject_cast<QComboBox*>(watched)) {
-      auto* scroll = combo->parentWidget();
+    auto* control = qobject_cast<QWidget*>(watched);
+    if (control && (qobject_cast<QComboBox*>(control) ||
+                    qobject_cast<QAbstractSpinBox*>(control) ||
+                    qobject_cast<QAbstractSpinBox*>(control->parentWidget()))) {
+      auto* scroll = control->parentWidget();
       while (scroll && !dynamic_cast<SmoothScrollArea*>(scroll)) {
         scroll = scroll->parentWidget();
       }
       if (auto* area = dynamic_cast<SmoothScrollArea*>(scroll)) {
-        area->scrollForWheelEvent(*static_cast<QWheelEvent*>(event));
+        auto* wheel = static_cast<QWheelEvent*>(event);
+        if (area->scrollForWheelEvent(*wheel)) {
+          wheel->accept();
+          return true;
+        }
       }
+      // 无页面可滚动时也不让滚轮意外更改参数。
+      event->ignore();
       return true;
     }
-    return qobject_cast<QAbstractSpinBox*>(watched) != nullptr;
+    return QObject::eventFilter(watched, event);
   }
 };
 
@@ -169,6 +182,10 @@ void MainWindow::buildUi() {
 
   captionBar_ = new CaptionBar(windowTitle(), central);
   outer->addWidget(captionBar_);
+#if !defined(Q_OS_WIN)
+  // macOS 和 Linux 已有系统标题栏，只在 Windows 绘制自定义窗口按钮。
+  captionBar_->hide();
+#endif
 
   auto* shellContainer = new QWidget(central);
   auto* shell = new QHBoxLayout(shellContainer);
@@ -185,12 +202,38 @@ void MainWindow::buildUi() {
   statusStrip_ = new StatusStrip(content);
   pages_ = new QStackedWidget(content);
   pages_->setObjectName("contentPages");
+  pageOpacity_ = new QGraphicsOpacityEffect(pages_);
+  pageOpacity_->setOpacity(1.0);
+  pageOpacity_->setEnabled(false);
+  pages_->setGraphicsEffect(pageOpacity_);
+  pageTransition_ = new QPropertyAnimation(pageOpacity_, "opacity", this);
+  pageTransition_->setObjectName("pageTransition");
+  pageTransition_->setDuration(180);
+  pageTransition_->setEasingCurve(QEasingCurve::OutCubic);
+  connect(pageTransition_, &QPropertyAnimation::finished, this, [this] {
+    pageOpacity_->setEnabled(false);
+  });
   clickPage_ = new ClickSettingsPage(pages_);
   macroPage_ = new MacroRecordingPage(pages_);
   hotkeyPage_ = new HotkeySettingsPage(pages_);
   presetsPage_ = new PresetsAboutPage(pages_);
 
-  const auto addScrollablePage = [this](QWidget* page) {
+  const auto addScrollablePage = [this](QWidget* page, const QString& title,
+                                       const QString& description) {
+    auto* pageLayout = qobject_cast<QVBoxLayout*>(page->layout());
+    auto* heading = new QLabel(title, page);
+    heading->setObjectName("pageTitle");
+    auto* hint = new QLabel(description, page);
+    hint->setObjectName("pageDescription");
+    hint->setWordWrap(true);
+    pageLayout->insertWidget(0, heading);
+    pageLayout->insertWidget(1, hint);
+    for (auto* card : page->findChildren<QFrame*>("settingsCard")) {
+      if (card->layout()) {
+        card->layout()->setContentsMargins(18, 16, 18, 16);
+        card->layout()->setSpacing(12);
+      }
+    }
     auto* scroll = new SmoothScrollArea(pages_);
     scroll->setWidgetResizable(true);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -200,10 +243,10 @@ void MainWindow::buildUi() {
     scroll->setWidget(page);
     pages_->addWidget(scroll);
   };
-  addScrollablePage(clickPage_);
-  addScrollablePage(macroPage_);
-  addScrollablePage(hotkeyPage_);
-  addScrollablePage(presetsPage_);
+  addScrollablePage(clickPage_, "连点设置", "设置点击节奏与位置，确认后开始连点。");
+  addScrollablePage(macroPage_, "键鼠录制", "录制操作并重复回放，运行时可用紧急停止热键中断。");
+  addScrollablePage(hotkeyPage_, "热键设置", "设置控制快捷键，并手动启用全局热键。");
+  addScrollablePage(presetsPage_, "预设与关于", "保存常用配置，查看版本与更新。");
 
   actionBar_ = new ActionBar(content);
   layout->addWidget(statusStrip_);
@@ -213,7 +256,7 @@ void MainWindow::buildUi() {
   outer->addWidget(shellContainer, 1);
 
   setMinimumSize(820, 560);
-  resize(920, 620);
+  resize(960, 680);
   setStyleSheet(clickFlowStyleSheet(windowStyle_->usesBackdrop()));
   windowStyle_->prepare(this);
 }
@@ -225,14 +268,39 @@ void MainWindow::installInputFilters() {
   }
   for (auto* spinBox : findChildren<QAbstractSpinBox*>()) {
     spinBox->installEventFilter(filter);
+    // Qt 会把悬停在文本区域的事件发给内部编辑器。
+    for (auto* editor : spinBox->findChildren<QLineEdit*>()) {
+      editor->installEventFilter(filter);
+    }
   }
 }
 
 void MainWindow::connectControllers() {
   connect(sidebar_, &NavigationSidebar::pageSelected, this,
           [this](ShellPage page) {
+            if (pages_->currentIndex() == static_cast<int>(page)) return;
+            pageTransition_->stop();
             pages_->setCurrentIndex(static_cast<int>(page));
             actionBar_->setVisible(page != ShellPage::MacroRecording);
+            if (!reducedMotion_ && style()->styleHint(QStyle::SH_Widget_Animate)) {
+              pageOpacity_->setEnabled(true);
+              pageTransition_->setStartValue(0.15);
+              pageTransition_->setEndValue(1.0);
+              pageTransition_->start();
+            } else {
+              pageOpacity_->setOpacity(1.0);
+              pageOpacity_->setEnabled(false);
+            }
+          });
+  connect(sidebar_, &NavigationSidebar::reduceMotionChanged, this,
+          [this](bool reduced) {
+            reducedMotion_ = reduced;
+            pageTransition_->stop();
+            pageOpacity_->setOpacity(1.0);
+            pageOpacity_->setEnabled(false);
+            for (int i = 0; i < pages_->count(); ++i) {
+              dynamic_cast<SmoothScrollArea*>(pages_->widget(i))->setReducedMotion(reduced);
+            }
           });
 
   connect(profileController_.get(), &ProfileController::profileApplied,

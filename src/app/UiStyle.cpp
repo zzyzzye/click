@@ -20,10 +20,10 @@ const ThemeTokens& fluentLightTokens() {
       QColor("#FDFDFD"),            // controlBackground
       QColor("#F9F9F9"),            // controlBackgroundHover
       QColor("#F5F5F5"),            // controlBackgroundPressed
-      QColor(255, 255, 255, 128),   // navItemHover
-      QColor(255, 255, 255, 178),   // navItemSelected
-      4,                            // controlRadius
-      8,                            // cardRadius
+      QColor(255, 255, 255, 16),    // navItemHover
+      QColor(255, 255, 255, 30),    // navItemSelected
+      8,                            // controlRadius
+      14,                           // cardRadius
       32,                           // controlHeight
   };
   return tokens;
@@ -31,39 +31,49 @@ const ThemeTokens& fluentLightTokens() {
 
 QString clickFlowStyleSheet(bool translucent) {
   const ThemeTokens& t = fluentLightTokens();
-  const char* surfaceBackground = translucent ? "transparent" : "#F3F3F3";
-  const char* contentBackground = translucent ? "transparent" : "#F3F3F3";
-  const char* sidebarBackground = translucent ? "transparent" : "#F3F3F3";
+  const char* surfaceBackground = translucent ? "transparent" : "#F5F7FB";
+  const char* contentBackground = translucent ? "transparent" : "#F5F7FB";
+  const QString sidebarBackground = hex(t.sidebarBackground);
   return QStringLiteral(R"(
     QWidget {
-      font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI";
+      font-family: "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Microsoft YaHei UI", "Noto Sans CJK SC";
       font-size: 13px;
+      color: %4;
     }
     QMainWindow, #contentSurface { background: %1; color: %4; }
     #contentPages { background: %2; }
     QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; }
     #navigationSidebar { background: %3; }
-    #productName { font-size: 20px; font-weight: 600; color: %4; }
-    #productVersion { color: %5; font-size: 12px; }
+    #productName { font-size: 19px; font-weight: 600; color: white; }
+    #productVersion, #sidebarFooter { color: #CAD5E5; font-size: 11px; }
+    #navigationSidebar QCheckBox { color: #CAD5E5; font-size: 11px; }
+    #sidebarSection { color: #9CADC5; font-size: 11px; padding: 0 10px; }
+    #pageTitle { font-size: 26px; font-weight: 600; color: #15243B; }
+    #pageDescription { color: %5; padding-bottom: 4px; }
+    #actionHint, #progressLabel { color: %5; font-size: 12px; }
+    #statusStrip[permissionAvailable="false"] #permissionLabel { color: %13; }
+    #statusStrip[permissionAvailable="true"] #permissionLabel { color: %10; }
     #sidebarNavigation { background: transparent; border: none; outline: none; }
     #sidebarNavigation::item { border-radius: 4px; padding-left: 12px; }
-    #sidebarNavigation::item:hover { background: rgba(255,255,255,0.50); }
-    #sidebarNavigation::item:selected { background: rgba(255,255,255,0.70); color: %4; }
+    #sidebarNavigation::item:hover { background: rgba(255,255,255,0.06); }
+    #sidebarNavigation::item:selected { background: rgba(255,255,255,0.12); color: white; }
     #settingsCard, #statusStrip, #actionBar {
-      background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;
+      background: white; border: 1px solid rgba(21,36,59,0.09); border-radius: 14px;
     }
-    #cardTitle { font-size: 14px; font-weight: 600; }
+    #statusStrip { border: none; background: transparent; }
+    #actionBar { border-color: rgba(0,103,192,0.18); background: #F0F6FD; }
+    #cardTitle { font-size: 15px; font-weight: 600; padding-bottom: 4px; }
     QPushButton {
       min-height: 32px; max-height: 32px;
       background: %6; color: %4;
       border: 1px solid rgba(0,0,0,0.08);
       border-bottom: 1px solid rgba(0,0,0,0.16);
-      border-radius: 4px;
+      border-radius: 8px;
       padding: 0 12px;
     }
     QPushButton:hover { background: %7; }
     QPushButton:pressed { background: %8; color: %5; }
-    QPushButton:focus { border-color: %4; }
+    QPushButton:focus { border: 2px solid %10; }
     QPushButton:disabled {
       color: %9; background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.04);
     }
@@ -74,7 +84,7 @@ QString clickFlowStyleSheet(bool translucent) {
       color: white;
       border: 1px solid rgba(255,255,255,0.08);
       border-bottom: 1px solid rgba(0,0,0,0.40);
-      border-radius: 4px;
+      border-radius: 8px;
       padding: 0 16px; font-weight: 600;
     }
     QPushButton#startStopButton,
@@ -96,15 +106,14 @@ QString clickFlowStyleSheet(bool translucent) {
     QPushButton#startStopButton[running="true"]:pressed { background: %15; }
     QComboBox, QSpinBox, QKeySequenceEdit, QLineEdit {
       min-height: 32px; max-height: 32px;
-      border: 1px solid rgba(0,0,0,0.08);
-      border-bottom: 1px solid rgba(0,0,0,0.42);
-      border-radius: 4px;
-      background: %6; padding: 0 34px 0 10px;
+      border: 1px solid rgba(21,36,59,0.16);
+      border-radius: 8px;
+      background: #F8FAFD; padding: 0 34px 0 10px;
       selection-color: white; selection-background-color: %10;
     }
     QLineEdit { padding: 0 10px; }
     QComboBox:hover, QSpinBox:hover, QKeySequenceEdit:hover, QLineEdit:hover {
-      background: %7;
+      background: white; border-color: rgba(0,103,192,0.45);
     }
     QComboBox:focus, QSpinBox:focus, QKeySequenceEdit:focus, QLineEdit:focus {
       background: white; border: 1px solid %10; border-bottom: 2px solid %10;
@@ -119,7 +128,7 @@ QString clickFlowStyleSheet(bool translucent) {
     }
     QComboBox::drop-down:hover { background: rgba(0,0,0,0.06); }
     QComboBox::down-arrow {
-      image: url(:/clickflow/icons/chevron-down.svg);
+      image: url(:/clickflow/icons/chevron-down.png);
       width: 12px; height: 8px;
     }
     QComboBox QAbstractItemView {
@@ -153,11 +162,11 @@ QString clickFlowStyleSheet(bool translucent) {
       background: rgba(0,0,0,0.10);
     }
     QSpinBox::up-arrow {
-      image: url(:/clickflow/icons/chevron-up.svg);
+      image: url(:/clickflow/icons/chevron-up.png);
       width: 10px; height: 6px;
     }
     QSpinBox::down-arrow {
-      image: url(:/clickflow/icons/chevron-down.svg);
+      image: url(:/clickflow/icons/chevron-down.png);
       width: 10px; height: 6px;
     }
     QCheckBox { spacing: 8px; }
@@ -169,7 +178,7 @@ QString clickFlowStyleSheet(bool translucent) {
     QCheckBox::indicator:hover { border-color: rgba(0,0,0,0.60); }
     QCheckBox::indicator:checked {
       background: %10; border-color: %10;
-      image: url(:/clickflow/icons/check.svg);
+      image: url(:/clickflow/icons/check.png);
     }
     QCheckBox::indicator:checked:hover {
       background: %11; border-color: %11;
@@ -178,7 +187,10 @@ QString clickFlowStyleSheet(bool translucent) {
       background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.20);
     }
     QListWidget { outline: none; }
-    QListWidget::item { border-radius: 4px; }
+    #presetList { border: 1px solid rgba(21,36,59,0.12); border-radius: 8px; background: #F8FAFD; padding: 4px; }
+    #presetEmptyHint { color: %5; padding: 16px 0; }
+    QListWidget:focus { border: 1px solid %10; }
+    QListWidget::item { border-radius: 4px; min-height: 32px; padding: 2px 8px; }
     QListWidget::item:hover { background: rgba(0,0,0,0.04); }
     QListWidget::item:selected { background: rgba(0,0,0,0.06); color: %4; }
     QScrollBar:vertical {
@@ -224,7 +236,7 @@ QString clickFlowStyleSheet(bool translucent) {
   )")
       .arg(QString::fromLatin1(surfaceBackground),
            QString::fromLatin1(contentBackground),
-           QString::fromLatin1(sidebarBackground),
+           sidebarBackground,
            hex(t.textPrimary),                // %4
            hex(t.textSecondary),              // %5
            hex(t.controlBackground),          // %6

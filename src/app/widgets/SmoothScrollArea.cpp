@@ -31,6 +31,11 @@ void SmoothScrollArea::wheelEvent(QWheelEvent* event) {
   }
 }
 
+void SmoothScrollArea::setReducedMotion(bool reduced) {
+  reducedMotion_ = reduced;
+  if (reduced) scrollAnimation_->stop();
+}
+
 bool SmoothScrollArea::scrollForWheelEvent(const QWheelEvent& event) {
   const int delta = verticalDelta(&event);
   if (delta == 0 || std::abs(event.angleDelta().x()) > std::abs(event.angleDelta().y())) {
@@ -38,9 +43,20 @@ bool SmoothScrollArea::scrollForWheelEvent(const QWheelEvent& event) {
   }
   QScrollBar* const bar = verticalScrollBar();
   const int start = bar->value();
-  const int target = std::clamp(start - delta, bar->minimum(), bar->maximum());
-  if (target != start) {
+  // 触控板已提供连续像素位移，不再叠加动画延迟。
+  if (reducedMotion_ || !event.pixelDelta().isNull()) {
     scrollAnimation_->stop();
+    bar->setValue(std::clamp(start - delta, bar->minimum(), bar->maximum()));
+    return true;
+  }
+  const bool animating = scrollAnimation_->state() == QAbstractAnimation::Running;
+  const int previousTarget = animating ? scrollAnimation_->endValue().toInt() : start;
+  // 同方向快速滚动累积位移；反向时从当前位置立即响应。
+  const bool sameDirection = (previousTarget - start) * -delta > 0;
+  const int base = sameDirection ? previousTarget : start;
+  const int target = std::clamp(base - delta, bar->minimum(), bar->maximum());
+  scrollAnimation_->stop();
+  if (target != start) {
     scrollAnimation_->setStartValue(start);
     scrollAnimation_->setEndValue(target);
     scrollAnimation_->start();
