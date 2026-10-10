@@ -185,6 +185,8 @@ Linux 本地构建前安装 `cmake ninja-build g++ qt6-base-dev qt6-svg-dev qt6-
 
 ## 维护者发布流程
 
+本项目约定：你决定发版时，告知助手“准备发布”及目标版本号（可选）。助手负责核对实际变更、准备版本号和 `docs/releases/v<version>.md` 中文说明、完成相关检查，并提供本次可直接执行的 Git 命令；Git 提交、推送和版本标签由你手动执行。详细协作规则见 `AGENTS.md` 的“发版准备约定”。
+
 1. 在 `CMakeLists.txt` 更新 `project(ClickFlow VERSION ...)`，并运行完整测试；
 2. 提交版本变更并推送目标分支；
 3. 创建并推送带注释的版本标签；
