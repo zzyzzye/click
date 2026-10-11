@@ -331,6 +331,7 @@ set(SHELL_WIDGET_SOURCES
   src/app/widgets/StatusStrip.h
   src/app/widgets/SmoothScrollArea.cpp
   src/app/widgets/SmoothScrollArea.h
+  src/app/widgets/SingleKeySequenceEdit.h
   src/app/widgets/ActionBar.cpp
   src/app/widgets/ActionBar.h
   src/app/widgets/WindowPickerButton.cpp

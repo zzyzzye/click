@@ -143,6 +143,7 @@ private slots:
   void stopFromProgressAndInjectionFailure();
   void captureCancellationAndHotkeyConflict();
   void editorEmptyBoundariesAndSavedState();
+  void editorKeepsSingleKeyCombination();
   void modalDialogBlocksCoordinateHotkey();
 };
 void FlowTests::editorEmptyBoundariesAndSavedState() {
@@ -181,7 +182,23 @@ void FlowTests::editorEmptyBoundariesAndSavedState() {
   QVERIFY(!page.findChild<QLabel*>("flowProgress")->text().contains("第 3 轮"));
   QVERIFY(page.findChild<QLabel*>("flowMessage")->text().isEmpty());
   QVERIFY(!button("flowRun")->isEnabled());
-  QCOMPARE(page.findChild<QKeySequenceEdit*>("flowKey")->maximumSequenceLength(), 1);
+}
+
+void FlowTests::editorKeepsSingleKeyCombination() {
+  FlowEditorPage page;
+  auto document = FlowTypes::create();
+  document.steps.append(FlowTypes::createStep(FlowStepKind::Key));
+  page.setDocument(document);
+  auto* key = page.findChild<QKeySequenceEdit*>("flowKey");
+  QVERIFY(key);
+  key->setKeySequence(QKeySequence::fromString("Ctrl+A, Ctrl+B", QKeySequence::PortableText));
+  emit key->editingFinished();
+  QCOMPARE(key->keySequence(), QKeySequence::fromString("Ctrl+A", QKeySequence::PortableText));
+  QCOMPARE(page.document().steps[0].value, QString("Ctrl+A"));
+  key->clear();
+  emit key->editingFinished();
+  QVERIFY(key->keySequence().isEmpty());
+  QVERIFY(page.document().steps[0].value.isEmpty());
 }
 
 void FlowTests::modalDialogBlocksCoordinateHotkey() {

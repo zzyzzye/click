@@ -1,4 +1,5 @@
 #include "app/pages/FlowEditorPage.h"
+#include "app/widgets/SingleKeySequenceEdit.h"
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
@@ -116,9 +117,8 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
   properties_->addRow("鼠标按键", button_);
   count_ = spin("点击次数", "flowCount", 1, 10000);
   wait_ = spin("等待（毫秒）", "flowWait", 0, 3600000);
-  key_ = new QKeySequenceEdit(this);
+  key_ = new SingleKeySequenceEdit(this);
   key_->setObjectName("flowKey");
-  key_->setMaximumSequenceLength(1);
   key_->setAccessibleName("步骤按键或组合键");
   properties_->addRow("按键组合", key_);
   text_ = new QPlainTextEdit(this);

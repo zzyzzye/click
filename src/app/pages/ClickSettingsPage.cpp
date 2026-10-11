@@ -1,4 +1,5 @@
 #include "app/pages/ClickSettingsPage.h"
+#include "app/widgets/SingleKeySequenceEdit.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -53,17 +54,8 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   inputMode_ = new QComboBox(this);
   inputMode_->addItem("鼠标", int(InputMode::Mouse));
   inputMode_->addItem("键盘", int(InputMode::Keyboard));
-  keyboardKey_ = new QKeySequenceEdit(this);
+  keyboardKey_ = new SingleKeySequenceEdit(this);
   keyboardKey_->setObjectName("keyboardKeyEdit");
-#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
-  keyboardKey_->setMaximumSequenceLength(1);
-#else
-  // Qt 6.4 没有长度限制 API，录入结束时保留第一个按键组合。
-  connect(keyboardKey_, &QKeySequenceEdit::keySequenceChanged, this,
-          [this](const QKeySequence& sequence) {
-            if (sequence.count() > 1) keyboardKey_->setKeySequence(QKeySequence(sequence[0]));
-          });
-#endif
   keyboardKey_->setKeySequence(QKeySequence(Qt::Key_Space));
   keyboardKey_->setToolTip("键盘模式下将重复发送这个按键。");
   button_ = new QComboBox(this);
