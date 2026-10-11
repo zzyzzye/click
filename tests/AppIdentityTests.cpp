@@ -16,9 +16,9 @@ void AppIdentityTests::appliesClickFlowIdentity() {
 
   QCOMPARE(QCoreApplication::organizationName(), QString("ClickFlow"));
   QCOMPARE(QCoreApplication::applicationName(), QString("ClickFlow"));
-  QCOMPARE(QCoreApplication::applicationVersion(), QString("0.5.1"));
+  QCOMPARE(QCoreApplication::applicationVersion(), QString("0.6.0"));
   QCOMPARE(QGuiApplication::applicationDisplayName(), QString("ClickFlow"));
-  QCOMPARE(QString(ClickFlowVersion::string), QString("0.5.1"));
+  QCOMPARE(QString(ClickFlowVersion::string), QString("0.6.0"));
 }
 
 QTEST_MAIN(AppIdentityTests)

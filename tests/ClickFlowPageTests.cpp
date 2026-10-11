@@ -4,6 +4,7 @@
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QListWidget>
 #include <QPushButton>
 #include <QProgressBar>
 #include <QDir>
@@ -27,6 +28,7 @@ class ClickFlowPageTests : public QObject {
   void advancedOptionsCollapseWithoutChangingProfile();
   void hotkeysRoundTripAndValidate();
   void presetsAndAboutExposeProductState();
+  void presetSelectionCannotUnlockRunningControls();
   void updateProgressHasStableControlsAndCancellation();
   void macroPageKeepsHotkeysVisibleAndEmitsSettings();
   void controlsUseConsistentComfortableHeights();
@@ -170,6 +172,24 @@ void ClickFlowPageTests::presetsAndAboutExposeProductState() {
   QCOMPARE(page.productName(), QString("ClickFlow"));
   QCOMPARE(page.versionText(), QString("0.2.0"));
   QVERIFY(!page.platformText().isEmpty());
+}
+
+void ClickFlowPageTests::presetSelectionCannotUnlockRunningControls() {
+  PresetsAboutPage page;
+  page.setPresetNames({"Alpha", "Beta"}, "Alpha");
+  page.setMutationEnabled(false);
+  page.findChild<QListWidget*>("presetList")->setCurrentRow(1);
+  page.setPresetNames({"Alpha", "Beta", "Gamma"}, "Gamma");
+  for (auto* button : page.findChildren<QPushButton*>())
+    if (button->text() == "新建" || button->text() == "保存" || button->text() == "重命名" ||
+        button->text() == "删除" || button->text() == "加载")
+      QVERIFY(!button->isEnabled());
+  page.setMutationEnabled(true);
+  QSignalSpy loaded(&page, &PresetsAboutPage::loadRequested);
+  for (auto* button : page.findChildren<QPushButton*>())
+    if (button->text() == "加载")
+      button->click();
+  QCOMPARE(loaded.count(), 1);
 }
 
 void ClickFlowPageTests::updateProgressHasStableControlsAndCancellation() {

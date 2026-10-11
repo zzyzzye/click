@@ -39,6 +39,9 @@ class ClickWorkflowController final : public QObject {
   void capturePoint();
   void emergencyStop();
   void resetForProfile();
+  void setStartGuard(std::function<bool(const ClickProfile&, QString*)> guard) {
+    startGuard_ = std::move(guard);
+  }
 
  signals:
   void profilePersistRequested(const ClickProfile& profile);
@@ -59,6 +62,7 @@ class ClickWorkflowController final : public QObject {
   ActionBar* actionBar_ = nullptr;
   StatusStrip* statusStrip_ = nullptr;
   ProfileProvider profileProvider_;
+  std::function<bool(const ClickProfile&, QString*)> startGuard_;
   QWidget* dialogParent_ = nullptr;
   int clicksExecuted_ = 0;
 };

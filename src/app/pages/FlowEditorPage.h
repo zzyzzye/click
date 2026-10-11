@@ -21,7 +21,7 @@ public:
     return document_;
   }
   bool isDirty() const;
-  void setDocument(const FlowDocument& document);
+  void setDocument(const FlowDocument& document, bool saved = true);
   void markSaved();
   void setLibrary(const QVector<FlowDocument>& documents);
   void addRecording(const MacroSequence& sequence);
@@ -56,11 +56,16 @@ private:
   void showProperties();
   void updateProperties();
   void addStep(FlowStepKind kind);
+  void updateActions();
+  void updateSavedLabel();
   FlowDocument document_;
   FlowDocument saved_;
   QVector<FlowDocument> history_;
   int historyIndex_ = 0;
   bool rendering_ = false;
+  bool persisted_ = false;
+  bool busy_ = false;
+  bool blocked_ = false;
   MacroPlaybackSettings runOptions_;
   QWidget* editing_;
   QWidget* actions_;
@@ -74,6 +79,7 @@ private:
   QKeySequenceEdit* key_;
   QPlainTextEdit* text_;
   QFormLayout* properties_;
-  QLabel *rawHint_, *message_, *progress_, *savedLabel_;
+  QLabel *rawHint_, *propertyHint_, *message_, *progress_, *savedLabel_;
+  QPushButton *open_, *add_, *copy_, *remove_, *up_, *down_;
   QPushButton *undo_, *redo_, *run_, *trial_, *pause_, *stop_, *save_;
 };

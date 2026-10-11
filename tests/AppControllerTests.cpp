@@ -1,8 +1,11 @@
 #include <QCheckBox>
+#include <QAbstractButton>
 #include <QApplication>
 #include <QFile>
 #include <QDir>
 #include <QComboBox>
+#include <QInputDialog>
+#include <QListWidget>
 #include <QMainWindow>
 #include <QLabel>
 #include <QMessageBox>
@@ -139,11 +142,72 @@ class AppControllerTests : public QObject {
 
  private slots:
   void profileControllerLoadsAndBroadcastsProfile();
+  void managingAnotherPresetPreservesActiveProfile();
   void hotkeyControllerOwnsRegistrationAndForwardsIntent();
   void clickControllerCapturesAndStopsCleanly();
   void macroControllerRecordsAndPersistsSequence();
   void workflowUiControllerAppliesMutualExclusion();
 };
+
+void AppControllerTests::managingAnotherPresetPreservesActiveProfile() {
+  const QString appName = QString("PresetLifecycleTest-%1").arg(QUuid::createUuid().toString());
+  auto repository = std::make_unique<SettingsRepository>("ClickFlow", appName);
+  auto* storage = repository.get();
+  ClickProfile active, other;
+  active.name = "正在使用";
+  active.intervalMs = 123;
+  other.name = "其他预设";
+  other.intervalMs = 789;
+  QVERIFY(storage->saveProfile(active));
+  QVERIFY(storage->saveProfile(other));
+  QVERIFY(storage->saveLastUsedProfile(active));
+  QMainWindow window;
+  CaptionBar caption("测试", &window);
+  ControllerFakeWindowStyle style;
+  WindowChromeController chrome(&window, &caption, &style);
+  ClickSettingsPage clickPage;
+  HotkeySettingsPage hotkeyPage;
+  PresetsAboutPage presetsPage;
+  ActionBar actionBar;
+  ProfileController controller(std::move(repository), &clickPage, &hotkeyPage, &presetsPage,
+                               &actionBar, &chrome, &window);
+  controller.initialize();
+  auto* list = presetsPage.findChild<QListWidget*>("presetList");
+  list->setCurrentItem(list->findItems(other.name, Qt::MatchExactly).first());
+  QTimer::singleShot(0, &window, [] {
+    if (auto* dialog = qobject_cast<QInputDialog*>(QApplication::activeModalWidget())) {
+      dialog->setTextValue("已改名");
+      dialog->accept();
+    }
+  });
+  emit presetsPage.renameRequested();
+  QCOMPARE(controller.currentProfile().name, active.name);
+  QCOMPARE(controller.currentProfile().intervalMs, active.intervalMs);
+  QVERIFY(storage->hasProfile("已改名"));
+  emit presetsPage.saveRequested();
+  QCOMPARE(storage->loadProfile("已改名")->intervalMs, other.intervalMs);
+  list->setCurrentItem(list->findItems("已改名", Qt::MatchExactly).first());
+  QTimer::singleShot(0, &window, [] {
+    if (auto* dialog = qobject_cast<QMessageBox*>(QApplication::activeModalWidget()))
+      dialog->button(QMessageBox::Yes)->click();
+  });
+  emit presetsPage.deleteRequested();
+  QVERIFY(!storage->hasProfile("已改名"));
+  QCOMPARE(controller.currentProfile().name, active.name);
+  QCOMPARE(storage->loadLastUsedProfile()->name, active.name);
+  // 修改当前预设名称后，重启恢复的名称也应同步更新。
+  list->setCurrentItem(list->findItems(active.name, Qt::MatchExactly).first());
+  QTimer::singleShot(0, &window, [] {
+    if (auto* dialog = qobject_cast<QInputDialog*>(QApplication::activeModalWidget())) {
+      dialog->setTextValue("当前新名称");
+      dialog->accept();
+    }
+  });
+  emit presetsPage.renameRequested();
+  QCOMPARE(controller.currentProfile().name, QString("当前新名称"));
+  QCOMPARE(storage->loadLastUsedProfile()->name, QString("当前新名称"));
+  QVERIFY(storage->deleteProfile("当前新名称"));
+}
 
 void AppControllerTests::profileControllerLoadsAndBroadcastsProfile() {
   const QString appName =

@@ -21,6 +21,11 @@ PresetsAboutPage::PresetsAboutPage(QWidget* parent) : QWidget(parent) {
   auto* title = new QLabel("配置预设", presets);
   title->setObjectName("cardTitle");
   p->addWidget(title);
+  currentProfile_ = new QLabel(presets);
+  currentProfile_->setObjectName("currentProfileLabel");
+  currentProfile_->setWordWrap(true);
+  p->addWidget(currentProfile_);
+  setCurrentProfileName("Default");
   emptyHint_ = new QLabel("还没有保存的预设\n点击“新建”，保存一套常用的点击配置。", presets);
   emptyHint_->setObjectName("presetEmptyHint");
   emptyHint_->setWordWrap(true);
@@ -33,6 +38,7 @@ PresetsAboutPage::PresetsAboutPage(QWidget* parent) : QWidget(parent) {
   auto* tools = new QHBoxLayout();
   new_ = new QPushButton("新建");
   save_ = new QPushButton("保存");
+  save_->setToolTip("保存当前正在使用的连点配置；选择列表中的其他预设不会自动加载。");
   rename_ = new QPushButton("重命名");
   delete_ = new QPushButton("删除");
   load_ = new QPushButton("加载");
@@ -132,6 +138,10 @@ void PresetsAboutPage::setPresetNames(const QStringList& names, const QString& s
     list_->setCurrentItem(matches.first());
   updateActions();
 }
+void PresetsAboutPage::setCurrentProfileName(const QString& name) {
+  currentProfile_->setText(QString("当前使用：%1；选择其他预设后点击“加载”才会切换。")
+                               .arg(name == "Default" ? "Default（默认配置）" : name));
+}
 QString PresetsAboutPage::selectedPresetName() const {
   return list_->currentItem() ? list_->currentItem()->text() : QString();
 }
@@ -145,11 +155,10 @@ QString PresetsAboutPage::platformText() const {
   return platform_->text();
 }
 void PresetsAboutPage::setMutationEnabled(bool enabled) {
+  mutationEnabled_ = enabled;
   new_->setEnabled(enabled);
   save_->setEnabled(enabled);
-  rename_->setEnabled(enabled && list_->currentItem());
-  delete_->setEnabled(enabled && list_->currentItem());
-  load_->setEnabled(enabled && list_->currentItem());
+  updateActions();
 }
 void PresetsAboutPage::setUpdateStatus(const QString& status) {
   updateStatus_->setText(status);
@@ -171,7 +180,7 @@ void PresetsAboutPage::setUpdateProgress(int percent, const QString& detail, boo
   updateCancel_->setText(percent < 0 ? "取消" : "取消下载");
 }
 void PresetsAboutPage::updateActions() {
-  const bool selected = list_->currentItem();
+  const bool selected = mutationEnabled_ && list_->currentItem();
   rename_->setEnabled(selected);
   delete_->setEnabled(selected);
   load_->setEnabled(selected);

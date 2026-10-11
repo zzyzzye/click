@@ -28,10 +28,23 @@ void ClickController::start(const ClickProfile& profile) {
       backend_->requestAccessibilityPermission();
     }
     state_ = State::PermissionDenied;
-    setStatus("需要授予辅助功能权限后才能开始点击。");
+    setStatus("输入控制不可用，请检查系统权限；Linux 需要 X11 桌面。");
     emit startRejected(status_);
     return;
   }
+
+  QString validationError;
+  if (!validateInput(profile, &validationError, false)) {
+    state_ = State::Error;
+    setStatus(validationError);
+    emit startRejected(validationError);
+    return;
+  }
+  activeScreens_ =
+      profile.inputMode == InputMode::Mouse && profile.targetMode == TargetMode::FixedPoint
+          ? backend_->screenRects()
+          : QVector<QRect>{};
+  validationClock_.invalidate();
 
   QString ownershipError;
   if (coordinator_ &&
@@ -110,7 +123,10 @@ void ClickController::handleCountdownTick() {
   }
 
   --countdownRemaining_;
+  const auto generation = runGeneration_;
   emit countdownChanged(std::max(0, countdownRemaining_));
+  if (!running_ || generation != runGeneration_)
+    return;
 
   if (countdownRemaining_ <= 0) {
     countdownTimer_.stop();
@@ -129,6 +145,8 @@ void ClickController::beginRun() {
   if (!running_) {
     return;
   }
+  // 倒计时结束后重新检查，不能沿用几秒前的权限与显示器状态。
+  validationClock_.invalidate();
 
   state_ = State::Running;
   const auto generation = runGeneration_;
@@ -147,6 +165,14 @@ void ClickController::performClick() {
   }
 
   const auto generation = runGeneration_;
+  if (!validationClock_.isValid() || validationClock_.elapsed() >= 250) {
+    QString error;
+    if (!validateInput(activeProfile_, &error, true)) {
+      finishRun(State::Error, error);
+      return;
+    }
+    validationClock_.restart();
+  }
   const bool succeeded = activeProfile_.inputMode == InputMode::Keyboard
                              ? backend_->keyTap(activeProfile_)
                              : backend_->click(activeProfile_);
@@ -168,6 +194,35 @@ void ClickController::performClick() {
       finishRun(State::Completed, "已完成");
     }
   }
+}
+
+bool ClickController::validateInput(const ClickProfile& profile, QString* error,
+                                    bool checkLayout) const {
+  if (!backend_->hasAccessibilityPermission()) {
+    *error = "输入控制权限已失效，已停止；请检查系统权限后重新开始。";
+    return false;
+  }
+  if (profile.inputMode == InputMode::Keyboard && !backend_->supportsKey(profile.keyboardKey)) {
+    *error = "当前平台不支持所选按键或组合键，请更换按键后重新开始。";
+    return false;
+  }
+  if (profile.inputMode != InputMode::Mouse || profile.targetMode != TargetMode::FixedPoint)
+    return true;
+  const auto screens = backend_->screenRects();
+  if (screens.isEmpty()) {
+    *error = "无法读取显示器布局，请检查系统输入支持后重试。";
+    return false;
+  }
+  if (checkLayout && screens != activeScreens_) {
+    *error = "显示器布局已变化，已停止；请重新捕获固定坐标后开始。";
+    return false;
+  }
+  if (std::none_of(screens.cbegin(), screens.cend(),
+                   [&](const QRect& r) { return r.contains(profile.fixedPoint); })) {
+    *error = "固定坐标不在当前屏幕内，请重新捕获位置后开始。";
+    return false;
+  }
+  return true;
 }
 
 void ClickController::finishRun(State state, const QString& status) {

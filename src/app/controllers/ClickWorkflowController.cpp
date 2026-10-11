@@ -67,11 +67,18 @@ void ClickWorkflowController::toggle() {
   }
   if (QApplication::activeModalWidget()) return;
   const ClickProfile profile = profileProvider_();
+  QString error;
+  if (startGuard_ && !startGuard_(profile, &error)) {
+    statusStrip_->setStatus("无法启动：" + error);
+    return;
+  }
   emit profilePersistRequested(profile);
   controller_.start(profile);
 }
 
 void ClickWorkflowController::capturePoint() {
+  if (QApplication::activeModalWidget() || controller_.isRunning())
+    return;
   clickPage_->setFixedPoint(backend_->currentCursorPosition());
 }
 

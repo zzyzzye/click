@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QLabel>
 #include <QLineEdit>
+#include <QKeySequenceEdit>
 #include <QDir>
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
@@ -40,6 +41,7 @@
 #include "app/widgets/SmoothScrollArea.h"
 #include "app/widgets/StatusStrip.h"
 #include "app/pages/FlowEditorPage.h"
+#include "app/pages/ClickSettingsPage.h"
 
 class MainWindowFakeClickBackend final : public ClickBackend {
  public:
@@ -190,11 +192,35 @@ class MainWindowTests : public QObject {
   void startsWithGlobalHotkeysDisabled();
   void globalHotkeysRequireManualActivation();
   void registrationFailureReturnsActivationToOff();
+  void changingRepeatedKeyCannotTriggerControlHotkey();
   void windowStyleReappliedAfterOnTopToggle();
   void immersiveCaptionIsInstalled();
   void sidebarNavigationDoesNotMinimizeWindow();
   void flowControlsRemainFixedAndHotkeysStopPausedRun();
 };
+
+void MainWindowTests::changingRepeatedKeyCannotTriggerControlHotkey() {
+  auto settings = std::make_unique<SettingsRepository>(
+      "ClickFlow", "InputConflict-" + QUuid::createUuid().toString());
+  MainWindow window(std::make_unique<MainWindowFakeClickBackend>(),
+                    std::make_unique<MainWindowFakeHotkeyService>(), std::move(settings));
+  auto* enabled = window.findChild<QCheckBox*>("globalHotkeysEnabledCheck");
+  enabled->click();
+  QVERIFY(enabled->isChecked());
+  ClickProfile profile;
+  profile.inputMode = InputMode::Keyboard;
+  profile.keyboardKey = "F8";
+  profile.intervalMs = 1000;
+  window.findChild<ClickSettingsPage*>()->setProfile(profile);
+  auto* start = window.findChild<QPushButton*>("startStopButton");
+  start->click();
+  QVERIFY(window.findChild<StatusStrip*>()->statusText().contains("冲突"));
+  QVERIFY(!start->text().contains("停止"));
+  enabled->click();
+  start->click();
+  QVERIFY(start->text().contains("停止"));
+  start->click();
+}
 
 void MainWindowTests::flowControlsRemainFixedAndHotkeysStopPausedRun() {
   QTemporaryDir tmp;
@@ -642,6 +668,12 @@ void MainWindowTests::pagesRemainReachableAtMinimumSize() {
       QCoreApplication::processEvents();
       QCOMPARE(scroll->horizontalScrollBar()->maximum(), 0);
       scroll->verticalScrollBar()->setValue(0);
+      if (static_cast<ShellPage>(index) == ShellPage::FlowEditor) {
+        auto* add = window.findChild<QPushButton*>("flowAdd");
+        const QRect visible(add->mapTo(scroll->viewport(), QPoint()), add->size());
+        QVERIFY2(scroll->viewport()->rect().contains(visible),
+                 "首次打开空流程时，添加步骤按钮必须在最小窗口内完整可见。");
+      }
       // 使用假输入服务离屏渲染，供人工检查，不触发真实桌面操作。
       const QString image = QDir::tempPath() +
           QString("/clickflow-ui-%1-%2.png").arg(size.width()).arg(index);

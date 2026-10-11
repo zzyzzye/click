@@ -150,6 +150,9 @@ MainWindow::MainWindow(
       std::move(backend), &automationCoordinator_, clickPage_, actionBar_,
       statusStrip_, [this] { return profileController_->currentProfile(); },
       this, this);
+  clickController_->setStartGuard([this](const ClickProfile& profile, QString* error) {
+    return !hotkeyController_->isEnabled() || hotkeyPage_->validate(profile, error);
+  });
   const QString flowRoot =
       macroRepository ? QDir(macroRepository->rootPath()).filePath("../flows") : QString();
   macroController_ = std::make_unique<MacroWorkflowController>(

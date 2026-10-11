@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QElapsedTimer>
 #include <QTimer>
 
 #include "core/ClickBackend.h"
@@ -48,6 +49,7 @@ class ClickController : public QObject {
 
   void beginRun();
   void performClick();
+  bool validateInput(const ClickProfile& profile, QString* error, bool checkLayout) const;
   void finishRun(State state, const QString& status);
   void setStatus(const QString& status);
 
@@ -55,6 +57,8 @@ class ClickController : public QObject {
   AutomationCoordinator* coordinator_ = nullptr;
   QTimer clickTimer_;
   QTimer countdownTimer_;
+  QElapsedTimer validationClock_;
+  QVector<QRect> activeScreens_;
   ClickProfile activeProfile_;
   State state_ = State::Idle;
   QString status_ = "Idle";

@@ -38,9 +38,11 @@ ProfileController::ProfileController(
           [this](bool enabled) { windowChrome_->setAlwaysOnTop(enabled); });
   connect(clickPage_, &ClickSettingsPage::settingsChanged, this, [this] {
     const ClickProfile profile = currentProfile();
-    if (!applyingProfile_) repository_->saveLastUsedProfile(profile);
+    const bool saved = applyingProfile_ || repository_->saveLastUsedProfile(profile);
     actionBar_->setSummary(clickPage_->summary());
-    if (!applyingProfile_) emit statusChanged("连点设置已自动保存");
+    if (!applyingProfile_)
+      emit statusChanged(saved ? "连点设置已自动保存"
+                               : "连点设置保存失败，请检查磁盘空间和写入权限。");
   });
 
   connect(presetsPage_, &PresetsAboutPage::saveRequested, this,
@@ -75,7 +77,8 @@ ClickProfile ProfileController::currentProfile() const {
 }
 
 void ProfileController::saveLastUsed(const ClickProfile& profile) {
-  repository_->saveLastUsedProfile(profile);
+  if (!repository_->saveLastUsedProfile(profile))
+    emit statusChanged("连点设置保存失败，请检查磁盘空间和写入权限。");
 }
 
 bool ProfileController::macroSafetyAcknowledged() const {
@@ -89,6 +92,7 @@ void ProfileController::acknowledgeMacroSafety() {
 void ProfileController::applyProfile(const ClickProfile& profile) {
   applyingProfile_ = true;
   currentProfileName_ = profile.name;
+  presetsPage_->setCurrentProfileName(currentProfileName_);
   clickPage_->setProfile(profile);
   hotkeyPage_->setProfile(profile);
   actionBar_->setSummary(clickPage_->summary());
@@ -105,8 +109,12 @@ void ProfileController::refreshPresetList(const QString& selected) {
 
 void ProfileController::savePreset() {
   const ClickProfile profile = currentProfile();
-  repository_->saveProfile(profile);
+  if (!repository_->saveProfile(profile)) {
+    emit statusChanged("预设保存失败，请检查名称、磁盘空间和写入权限；当前设置仍保留。");
+    return;
+  }
   refreshPresetList(profile.name);
+  emit statusChanged(QString("已保存预设“%1”").arg(profile.name));
 }
 
 void ProfileController::createPreset() {
@@ -116,6 +124,10 @@ void ProfileController::createPreset() {
                             QLineEdit::Normal, {}, &accepted)
           .trimmed();
   if (!accepted || name.isEmpty()) return;
+  if (!SettingsRepository::validProfileName(name)) {
+    QMessageBox::warning(dialogParent_, "无法新建", "配置名称不能包含 / 或 \\，请更换名称。");
+    return;
+  }
   if (repository_->hasProfile(name)) {
     QMessageBox::warning(dialogParent_, "无法新建", "已经存在同名配置。");
     return;
@@ -123,9 +135,14 @@ void ProfileController::createPreset() {
 
   ClickProfile profile = currentProfile();
   profile.name = name;
-  repository_->saveProfile(profile);
+  if (!repository_->saveProfile(profile)) {
+    emit statusChanged("新建预设失败，请检查磁盘空间和写入权限；当前设置仍保留。");
+    return;
+  }
   applyProfile(profile);
+  saveLastUsed(profile);
   refreshPresetList(name);
+  emit statusChanged(QString("已新建并使用预设“%1”").arg(name));
 }
 
 void ProfileController::renamePreset() {
@@ -137,10 +154,26 @@ void ProfileController::renamePreset() {
       QInputDialog::getText(dialogParent_, "重命名配置", "新名称",
                             QLineEdit::Normal, oldName, &accepted)
           .trimmed();
-  if (accepted && repository_->renameProfile(oldName, name)) {
-    currentProfileName_ = name;
-    refreshPresetList(name);
+  if (!accepted || name == oldName)
+    return;
+  if (!SettingsRepository::validProfileName(name) || repository_->hasProfile(name)) {
+    QMessageBox::warning(dialogParent_, "无法重命名",
+                         "名称不能为空、不能包含 / 或 \\，也不能与已有预设同名。");
+    return;
   }
+  if (!repository_->renameProfile(oldName, name)) {
+    emit statusChanged("重命名失败，请检查写入权限；请重新查看预设列表。");
+    refreshPresetList(oldName);
+    return;
+  }
+  // 列表选中项不一定是当前使用的预设，不能将另一套设置绑定到新名称。
+  if (currentProfileName_ == oldName) {
+    currentProfileName_ = name;
+    presetsPage_->setCurrentProfileName(currentProfileName_);
+    saveLastUsed(currentProfile());
+  }
+  refreshPresetList(name);
+  emit statusChanged(QString("已将预设“%1”重命名为“%2”").arg(oldName, name));
 }
 
 void ProfileController::deletePreset() {
@@ -152,9 +185,17 @@ void ProfileController::deletePreset() {
     return;
   }
 
-  repository_->deleteProfile(name);
-  currentProfileName_ = "Default";
+  if (!repository_->deleteProfile(name)) {
+    emit statusChanged("删除预设失败，请检查写入权限后重试。");
+    return;
+  }
+  if (currentProfileName_ == name) {
+    currentProfileName_ = "Default";
+    presetsPage_->setCurrentProfileName(currentProfileName_);
+    saveLastUsed(currentProfile());
+  }
   refreshPresetList();
+  emit statusChanged(QString("已删除预设“%1”，当前连点参数保留。").arg(name));
 }
 
 void ProfileController::loadPreset() {
@@ -162,5 +203,5 @@ void ProfileController::loadPreset() {
       repository_->loadProfile(presetsPage_->selectedPresetName());
   if (!profile.has_value()) return;
   applyProfile(*profile);
-  repository_->saveLastUsedProfile(*profile);
+  saveLastUsed(*profile);
 }

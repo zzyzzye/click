@@ -31,7 +31,15 @@ class FakeClickBackend : public ClickBackend {
   void requestAccessibilityPermission() override {
     requestedPermission = true;
   }
+  QVector<QRect> screenRects() const override {
+    return screens;
+  }
+  bool supportsKey(const QString&) const override {
+    return keySupported;
+  }
 
+  QVector<QRect> screens{QRect(-200, 0, 200, 200), QRect(100, 0, 200, 200)};
+  bool keySupported = true;
   bool clickResult = true;
   bool keyTapResult = true;
   bool accessibilityAllowed = true;
@@ -51,9 +59,109 @@ class ClickerTests : public QObject {
   void controllerUsesExclusiveAutomationOwnership();
   void stopFromProgressRemainsStopped();
   void stopDuringStartDoesNotStartCountdown();
+  void invalidTargetNeverStartsInput();
+  void changedConditionsStopBeforeNextInput();
+  void countdownRevalidatesBeforeFirstInput();
+  void stopAtCountdownTickCannotOverwriteStatus();
   void settingsRepositoryCrud();
+  void invalidPresetNamesDoNotCreateNestedGroups();
   void settingsRepositoryPersistsMacroSafetyAcknowledgement();
 };
+
+void ClickerTests::stopAtCountdownTickCannotOverwriteStatus() {
+  FakeClickBackend backend;
+  ClickController controller(&backend);
+  ClickProfile profile;
+  profile.countdownSeconds = 3;
+  controller.start(profile);
+  connect(&controller, &ClickController::countdownChanged, &controller, [&](int remaining) {
+    if (remaining == 2)
+      controller.stop();
+  });
+  QVERIFY(QMetaObject::invokeMethod(&controller, "handleCountdownTick", Qt::DirectConnection));
+  QVERIFY(!controller.isRunning());
+  QCOMPARE(controller.currentStatus(), QString("已停止"));
+  QCOMPARE(backend.clickCount, 0);
+}
+
+void ClickerTests::invalidPresetNamesDoNotCreateNestedGroups() {
+  const QString appName = QString("PresetNamesTest-%1").arg(QUuid::createUuid().toString());
+  SettingsRepository repository("ClickFlow", appName);
+  for (const QString& name : {QString(""), QString(" "), QString("a/b"), QString("a\\b")}) {
+    ClickProfile profile;
+    profile.name = name;
+    QVERIFY(!repository.saveProfile(profile));
+    QVERIFY(!repository.hasProfile(name));
+  }
+  QVERIFY(repository.profileNames().isEmpty());
+  ClickProfile profile;
+  profile.name = "正常名称";
+  QVERIFY(repository.saveProfile(profile));
+  QVERIFY(!repository.renameProfile(profile.name, "无效/名称"));
+  QVERIFY(repository.hasProfile(profile.name));
+  QVERIFY(repository.deleteProfile(profile.name));
+}
+
+void ClickerTests::invalidTargetNeverStartsInput() {
+  FakeClickBackend backend;
+  AutomationCoordinator coordinator;
+  ClickController controller(&backend, &coordinator);
+  QSignalSpy rejected(&controller, &ClickController::startRejected);
+  ClickProfile profile;
+  profile.targetMode = TargetMode::FixedPoint;
+  profile.fixedPoint = {50, 50}; // 两块屏幕之间的空隙。
+  controller.start(profile);
+  QCOMPARE(rejected.count(), 1);
+  QCOMPARE(backend.clickCount, 0);
+  QCOMPARE(coordinator.activity(), AutomationActivity::Idle);
+  profile.inputMode = InputMode::Keyboard;
+  backend.keySupported = false;
+  controller.start(profile);
+  QCOMPARE(rejected.count(), 2);
+  QCOMPARE(backend.keyTapCount, 0);
+  profile.inputMode = InputMode::Mouse;
+  profile.fixedPoint = {-100, 50};
+  profile.repeatMode = RepeatMode::Finite;
+  profile.repeatCount = 1;
+  controller.start(profile);
+  QCOMPARE(backend.clickCount, 1);
+  QCOMPARE(controller.currentStatus(), QString("已完成"));
+}
+
+void ClickerTests::changedConditionsStopBeforeNextInput() {
+  for (bool permissionLoss : {true, false}) {
+    FakeClickBackend backend;
+    AutomationCoordinator coordinator;
+    ClickController controller(&backend, &coordinator);
+    ClickProfile profile;
+    profile.intervalMs = 300;
+    profile.targetMode = TargetMode::FixedPoint;
+    profile.fixedPoint = {-100, 50};
+    controller.start(profile);
+    QCOMPARE(backend.clickCount, 1);
+    if (permissionLoss)
+      backend.accessibilityAllowed = false;
+    else
+      backend.screens = {QRect(-200, 0, 400, 200)};
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.isRunning(), 1000);
+    QCOMPARE(backend.clickCount, 1);
+    QCOMPARE(coordinator.activity(), AutomationActivity::Idle);
+    QVERIFY(controller.currentStatus().contains(permissionLoss ? "权限" : "布局"));
+  }
+}
+
+void ClickerTests::countdownRevalidatesBeforeFirstInput() {
+  FakeClickBackend backend;
+  ClickController controller(&backend);
+  ClickProfile profile;
+  profile.countdownSeconds = 1;
+  controller.start(profile);
+  backend.accessibilityAllowed = false;
+  QVERIFY(QMetaObject::invokeMethod(&controller, "handleCountdownTick", Qt::DirectConnection));
+  QVERIFY(!controller.isRunning());
+  QCOMPARE(backend.clickCount, 0);
+  QVERIFY(controller.currentStatus().contains("权限"));
+}
 
 void ClickerTests::stopFromProgressRemainsStopped() {
   FakeClickBackend backend;

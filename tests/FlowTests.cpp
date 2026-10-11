@@ -12,6 +12,7 @@
 #include <QPlainTextEdit>
 #include <QKeySequenceEdit>
 #include <QLabel>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QApplication>
 #include "core/FlowDocument.h"
@@ -141,7 +142,67 @@ private slots:
   void saveFailureAndUnsavedCancel();
   void stopFromProgressAndInjectionFailure();
   void captureCancellationAndHotkeyConflict();
+  void editorEmptyBoundariesAndSavedState();
+  void modalDialogBlocksCoordinateHotkey();
 };
+void FlowTests::editorEmptyBoundariesAndSavedState() {
+  FlowEditorPage page;
+  auto button = [&](const char* id) { return page.findChild<QPushButton*>(id); };
+  for (const char* id : {"flowRun", "flowTrial", "flowSave", "flowOpen", "flowCopy", "flowRemove",
+                         "flowUp", "flowDown"})
+    QVERIFY(!button(id)->isEnabled());
+  QVERIFY(!page.findChild<QLabel*>("flowPropertyHint")->isHidden());
+  button("flowAdd")->click();
+  QVERIFY(button("flowRun")->isEnabled());
+  QVERIFY(button("flowCopy")->isEnabled());
+  QVERIFY(!button("flowUp")->isEnabled());
+  QVERIFY(!button("flowDown")->isEnabled());
+  button("flowCopy")->click();
+  QVERIFY(button("flowUp")->isEnabled());
+  button("flowRemove")->click();
+  button("flowRemove")->click();
+  QVERIFY(!button("flowRun")->isEnabled());
+  button("flowUndo")->click();
+  QVERIFY(button("flowRun")->isEnabled());
+  auto d = FlowTypes::create();
+  for (int i = 0; i < 1000; ++i)
+    d.steps.append(FlowTypes::createStep(FlowStepKind::Wait));
+  page.setDocument(d);
+  page.setLibrary({d});
+  QCOMPARE(page.findChild<QComboBox*>("flowLibrary")->currentData().toString(), d.id);
+  QVERIFY(button("flowOpen")->isEnabled());
+  QVERIFY(!button("flowAdd")->isEnabled());
+  QVERIFY(!button("flowCopy")->isEnabled());
+  button("flowCopy")->click();
+  QCOMPARE(page.document().steps.size(), 1000);
+  page.setProgress(999, 3, 2);
+  page.setMessage("旧流程执行失败", true);
+  page.setDocument(FlowTypes::create(), false);
+  QVERIFY(!page.findChild<QLabel*>("flowProgress")->text().contains("第 3 轮"));
+  QVERIFY(page.findChild<QLabel*>("flowMessage")->text().isEmpty());
+  QVERIFY(!button("flowRun")->isEnabled());
+  QCOMPARE(page.findChild<QKeySequenceEdit*>("flowKey")->maximumSequenceLength(), 1);
+}
+
+void FlowTests::modalDialogBlocksCoordinateHotkey() {
+  QTemporaryDir tmp;
+  FlowBackend backend;
+  AutomationCoordinator coordinator;
+  FlowEditorPage page;
+  page.setDocument(clickFlow(backend));
+  FlowWorkflowController workflow(&page, &backend, nullptr, &coordinator, tmp.path(),
+                                  [] { return true; });
+  const auto before = page.document();
+  QMessageBox dialog(QMessageBox::Question, "测试确认", "保持编辑内容", QMessageBox::Cancel);
+  dialog.setModal(true);
+  dialog.show();
+  QTRY_VERIFY(QApplication::activeModalWidget());
+  workflow.capture(false);
+  QCOMPARE(page.document(), before);
+  dialog.close();
+  workflow.capture(false);
+  QCOMPARE(page.document().steps[0].point, backend.currentCursorPosition());
+}
 void FlowTests::persistenceAndCompatibility() {
   QTemporaryDir tmp;
   FlowBackend b;

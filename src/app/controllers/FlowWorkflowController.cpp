@@ -22,7 +22,7 @@ FlowWorkflowController::FlowWorkflowController(FlowEditorPage* page, ClickBacken
   });
   connect(page_, &FlowEditorPage::newRequested, this, [this] {
     if (resolveUnsaved())
-      page_->setDocument(FlowTypes::create());
+      page_->setDocument(FlowTypes::create(), false);
   });
   connect(page_, &FlowEditorPage::openRequested, this, [this](const QString& id) {
     if (id.isEmpty()) {
@@ -207,7 +207,8 @@ void FlowWorkflowController::emergencyStop() {
   controller_.emergencyStop();
 }
 void FlowWorkflowController::capture(bool delayed) {
-  if (coordinator_->activity() != AutomationActivity::Idle || captureTimer_.isActive())
+  if (QApplication::activeModalWidget() || coordinator_->activity() != AutomationActivity::Idle ||
+      captureTimer_.isActive())
     return;
   if (!delayed) {
     page_->capturePoint(backend_->currentCursorPosition(), backend_->screenRects());
@@ -225,7 +226,7 @@ bool FlowWorkflowController::openRecording(const MacroSequence& sequence) {
   d.playback = sequence.playback;
   d.playback.speed = 1.0;
   d.screens = backend_->screenRects();
-  page_->setDocument(d);
+  page_->setDocument(d, false);
   page_->addRecording(sequence);
   page_->setMessage("原录制文件保持不变，编辑后保存为独立流程。录制块保留原回放速度。");
   return true;

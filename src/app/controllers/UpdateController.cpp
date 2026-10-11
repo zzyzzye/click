@@ -142,6 +142,8 @@ void UpdateController::handleAction() {
   }
 }
 void UpdateController::checkForUpdates() {
+  if (state_ != State::Idle)
+    return;
   if (!dependencies_.supported) {
     QDesktopServices::openUrl(QUrl(releasePage));
     emit statusChanged("更新：请在 Release 页面下载当前平台的新版本。");
@@ -179,6 +181,10 @@ void UpdateController::checkForUpdates() {
       fail("版本信息无效，请稍后重新检查。");
       return;
     }
+    if (release.value("draft").toBool() || release.value("prerelease").toBool()) {
+      fail("该版本尚未正式发布，请稍后重新检查。");
+      return;
+    }
     if (!isReleaseNewer(tag, QCoreApplication::applicationVersion())) {
       state_ = State::Idle;
       emit statusChanged("当前已是最新版本（" + QCoreApplication::applicationVersion() + "）。");
@@ -187,13 +193,15 @@ void UpdateController::checkForUpdates() {
       return;
     }
     QUrl installer, checksum;
+    const QString version = tag.startsWith('v') ? tag.mid(1) : tag;
+    const QString expectedName = "ClickFlow-" + version + suffix();
     for (const auto& value : release.value("assets").toArray()) {
       const auto asset = value.toObject();
       const QString name = asset.value("name").toString();
       const QUrl url(asset.value("browser_download_url").toString());
-      if (name.endsWith(suffix()))
+      if (name == expectedName)
         installer = url;
-      if (name.endsWith(suffix() + ".sha256"))
+      if (name == expectedName + ".sha256")
         checksum = url;
     }
     markAvailable(tag, installer, checksum);
@@ -226,10 +234,9 @@ void UpdateController::checkFromReleasePage() {
 }
 void UpdateController::markAvailable(const QString& tag, const QUrl& installer,
                                      const QUrl& checksum) {
-  const QString prefix = QString(assetPrefix) + tag + '/';
-  if (!installer.toString().startsWith(prefix) || !checksum.toString().startsWith(prefix) ||
-      installer.hasQuery() || checksum.hasQuery() || installer.hasFragment() ||
-      checksum.hasFragment()) {
+  const QString version = tag.startsWith('v') ? tag.mid(1) : tag;
+  const QUrl expected(QString(assetPrefix) + tag + "/ClickFlow-" + version + suffix());
+  if (installer != expected || checksum != QUrl(expected.toString() + ".sha256")) {
     fail("找到新版本，但缺少匹配架构的安装包或校验文件，请稍后重新检查。");
     return;
   }
@@ -260,6 +267,13 @@ void UpdateController::downloadUpdate() {
     const QByteArray data = r->readAll();
     expectedHash_ = data.simplified().split(' ').value(0).toLower();
     static const QRegularExpression digest("^[0-9a-f]{64}$");
+    const int status = r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (status == 404 || status == 410) {
+      installerUrl_ = QUrl{};
+      checksumUrl_ = QUrl{};
+      fail("更新文件已移除或尚未上传完成，请重新检查版本。");
+      return;
+    }
     if (r->error() != QNetworkReply::NoError || data.size() > 65536 ||
         !digest.match(QString::fromLatin1(expectedHash_)).hasMatch()) {
       fail("无法取得有效校验信息，请重新下载。");
@@ -310,6 +324,13 @@ void UpdateController::downloadInstaller() {
     if (!consumeInstaller())
       return;
     reply_.clear();
+    const int status = r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (status == 404 || status == 410) {
+      installerUrl_ = QUrl{};
+      checksumUrl_ = QUrl{};
+      fail("更新文件已移除或尚未上传完成，请重新检查版本。");
+      return;
+    }
     if (r->error() != QNetworkReply::NoError || received_ == 0) {
       fail("下载失败，当前版本未改变；请重新下载。");
       return;

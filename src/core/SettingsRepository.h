@@ -13,11 +13,12 @@ class SettingsRepository {
 
   QStringList profileNames() const;
   bool hasProfile(const QString& name) const;
-  void saveProfile(const ClickProfile& profile);
+  static bool validProfileName(const QString& name);
+  bool saveProfile(const ClickProfile& profile);
   std::optional<ClickProfile> loadProfile(const QString& name) const;
   bool renameProfile(const QString& oldName, const QString& newName);
   bool deleteProfile(const QString& name);
-  void saveLastUsedProfile(const ClickProfile& profile);
+  bool saveLastUsedProfile(const ClickProfile& profile);
   std::optional<ClickProfile> loadLastUsedProfile() const;
   bool macroSafetyAcknowledged() const;
   void setMacroSafetyAcknowledged(bool acknowledged);

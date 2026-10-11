@@ -38,6 +38,8 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
     return layout;
   };
   auto* header = card("本机流程");
+  header->setContentsMargins(18, 12, 18, 12);
+  header->setSpacing(8);
   auto* row = new QHBoxLayout;
   library_ = new QComboBox(this);
   library_->setObjectName("flowLibrary");
@@ -51,13 +53,16 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
     layout->addWidget(b);
     return b;
   };
-  auto* open = button("打开", "flowOpen", row);
+  open_ = button("打开", "flowOpen", row);
   auto* fresh = button("新建", "flowNew", row);
   header->addLayout(row);
   name_ = new QLineEdit(this);
   name_->setObjectName("flowName");
   name_->setAccessibleName("流程名称");
-  header->addWidget(name_);
+  name_->setPlaceholderText("流程名称");
+  name_->setToolTip("当前流程的名称，点击“保存流程”后写入本机。");
+  name_->setMinimumWidth(0);
+  row->insertWidget(0, name_, 1);
   savedLabel_ = new QLabel(this);
   savedLabel_->setWordWrap(true);
   header->addWidget(savedLabel_);
@@ -65,9 +70,10 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
   auto* addRow = new QHBoxLayout;
   kind_ = new QComboBox(this);
   kind_->setObjectName("flowStepKind");
+  kind_->setAccessibleName("要添加的步骤类型");
   kind_->addItems({"点击 / 多点编排", "按键组合", "输入文字", "等待"});
   addRow->addWidget(kind_, 1);
-  auto* add = button("添加步骤", "flowAdd", addRow);
+  add_ = button("添加步骤", "flowAdd", addRow);
   sequence->addLayout(addRow);
   steps_ = new QListWidget(this);
   steps_->setObjectName("flowSteps");
@@ -78,14 +84,19 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
   steps_->setMaximumHeight(200);
   sequence->addWidget(steps_);
   auto* tools = new QHBoxLayout;
-  auto* copy = button("复制", "flowCopy", tools);
-  auto* remove = button("删除", "flowRemove", tools);
-  auto* up = button("上移", "flowUp", tools);
-  auto* down = button("下移", "flowDown", tools);
+  copy_ = button("复制", "flowCopy", tools);
+  remove_ = button("删除", "flowRemove", tools);
+  remove_->setToolTip("删除所选步骤；可使用“撤销”恢复。");
+  up_ = button("上移", "flowUp", tools);
+  down_ = button("下移", "flowDown", tools);
   undo_ = button("撤销", "flowUndo", tools);
   redo_ = button("重做", "flowRedo", tools);
   sequence->addLayout(tools);
   auto* propertyCard = card("所选步骤");
+  propertyHint_ = new QLabel("先添加步骤，再在这里设置操作内容。", this);
+  propertyHint_->setObjectName("flowPropertyHint");
+  propertyHint_->setWordWrap(true);
+  propertyCard->addWidget(propertyHint_);
   properties_ = new QFormLayout;
   properties_->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
   propertyCard->addLayout(properties_);
@@ -93,6 +104,7 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
     auto* s = new QSpinBox(this);
     s->setObjectName(id);
     s->setRange(min, max);
+    s->setAccessibleName(label);
     properties_->addRow(label, s);
     return s;
   };
@@ -106,6 +118,8 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
   wait_ = spin("等待（毫秒）", "flowWait", 0, 3600000);
   key_ = new QKeySequenceEdit(this);
   key_->setObjectName("flowKey");
+  key_->setMaximumSequenceLength(1);
+  key_->setAccessibleName("步骤按键或组合键");
   properties_->addRow("按键组合", key_);
   text_ = new QPlainTextEdit(this);
   text_->setObjectName("flowText");
@@ -137,10 +151,12 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
   form->addRow(infinite_);
   rounds_ = new QSpinBox(this);
   rounds_->setObjectName("flowRounds");
+  rounds_->setAccessibleName("流程执行轮数");
   rounds_->setRange(1, 1000000);
   form->addRow("执行轮数", rounds_);
   loopDelay_ = new QSpinBox(this);
   loopDelay_->setObjectName("flowLoopDelay");
+  loopDelay_->setAccessibleName("每轮等待毫秒数");
   loopDelay_->setRange(0, 3600000);
   form->addRow("每轮等待（毫秒）", loopDelay_);
   root->addWidget(editing_);
@@ -150,6 +166,7 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
   actionLayout->setContentsMargins(16, 12, 16, 12);
   progress_ = new QLabel("添加步骤后可先试运行一轮。运行会操作真实桌面。", actions_);
   progress_->setWordWrap(true);
+  progress_->setObjectName("flowProgress");
   actionLayout->addWidget(progress_);
   message_ = new QLabel(actions_);
   message_->setObjectName("flowMessage");
@@ -166,22 +183,23 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
   root->addWidget(actions_);
   root->addStretch();
   connect(fresh, &QPushButton::clicked, this, &FlowEditorPage::newRequested);
-  connect(open, &QPushButton::clicked, this,
+  connect(open_, &QPushButton::clicked, this,
           [this] { emit openRequested(library_->currentData().toString()); });
+  connect(library_, &QComboBox::currentIndexChanged, this, [this] { updateActions(); });
   connect(save_, &QPushButton::clicked, this, &FlowEditorPage::saveRequested);
   connect(run_, &QPushButton::clicked, this, [this] { emit runRequested(false); });
   connect(trial_, &QPushButton::clicked, this, [this] { emit runRequested(true); });
   connect(pause_, &QPushButton::clicked, this, &FlowEditorPage::pauseRequested);
   connect(stop_, &QPushButton::clicked, this, &FlowEditorPage::stopRequested);
-  connect(add, &QPushButton::clicked, this,
+  connect(add_, &QPushButton::clicked, this,
           [this] { addStep(FlowStepKind(kind_->currentIndex())); });
   connect(steps_, &QListWidget::currentRowChanged, this, [this] {
     if (!rendering_)
       showProperties();
   });
-  connect(copy, &QPushButton::clicked, this, [this] {
+  connect(copy_, &QPushButton::clicked, this, [this] {
     int i = steps_->currentRow();
-    if (i < 0 || i >= document_.steps.size())
+    if (i < 0 || i >= document_.steps.size() || document_.steps.size() >= 1000)
       return;
     auto next = document_;
     auto step = next.steps[i];
@@ -190,7 +208,7 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
     commit(next);
     render(i + 1);
   });
-  connect(remove, &QPushButton::clicked, this, [this] {
+  connect(remove_, &QPushButton::clicked, this, [this] {
     int i = steps_->currentRow();
     if (i < 0 || i >= document_.steps.size())
       return;
@@ -208,8 +226,8 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
     commit(next);
     render(j);
   };
-  connect(up, &QPushButton::clicked, this, [move] { move(-1); });
-  connect(down, &QPushButton::clicked, this, [move] { move(1); });
+  connect(up_, &QPushButton::clicked, this, [move] { move(-1); });
+  connect(down_, &QPushButton::clicked, this, [move] { move(1); });
   connect(undo_, &QPushButton::clicked, this, [this] {
     if (historyIndex_ > 0) {
       document_ = history_[--historyIndex_];
@@ -229,22 +247,26 @@ FlowEditorPage::FlowEditorPage(QWidget* parent) : QWidget(parent) {
   connect(key_, &QKeySequenceEdit::editingFinished, this, [this] { updateProperties(); });
   connect(text_, &QPlainTextEdit::textChanged, this, [this] { updateProperties(); });
   connect(name_, &QLineEdit::textEdited, this, [this] { updateProperties(); });
-  setDocument(FlowTypes::create());
+  setDocument(FlowTypes::create(), false);
   setRunning(MacroControllerState::Idle);
 }
 
 bool FlowEditorPage::isDirty() const {
   return document_ != saved_;
 }
-void FlowEditorPage::setDocument(const FlowDocument& d) {
+void FlowEditorPage::setDocument(const FlowDocument& d, bool saved) {
   document_ = d;
+  persisted_ = saved;
   history_ = {d};
   historyIndex_ = 0;
   saved_ = d;
+  progress_->setText("添加步骤后可先试运行一轮。运行会操作真实桌面。");
+  setMessage({});
   render(0);
 }
 void FlowEditorPage::markSaved() {
   saved_ = document_;
+  persisted_ = true;
   render();
 }
 void FlowEditorPage::commit(const FlowDocument& next) {
@@ -256,9 +278,8 @@ void FlowEditorPage::commit(const FlowDocument& next) {
     history_.removeFirst();
   historyIndex_ = history_.size() - 1;
   document_ = next;
-  savedLabel_->setText(isDirty() ? "流程尚未保存 · 仅在本次会话保留" : "流程内容未修改");
-  undo_->setEnabled(historyIndex_ > 0);
-  redo_->setEnabled(false);
+  updateSavedLabel();
+  updateActions();
 }
 void FlowEditorPage::render(int selected) {
   if (selected == -2)
@@ -277,9 +298,7 @@ void FlowEditorPage::render(int selected) {
     steps_->item(0)->setFlags(Qt::NoItemFlags);
   } else
     steps_->setCurrentRow(qBound(0, selected, int(document_.steps.size()) - 1));
-  savedLabel_->setText(isDirty() ? "流程尚未保存 · 仅在本次会话保留" : "流程内容未修改");
-  undo_->setEnabled(historyIndex_ > 0);
-  redo_->setEnabled(historyIndex_ + 1 < history_.size());
+  updateSavedLabel();
   rendering_ = false;
   showProperties();
 }
@@ -287,6 +306,7 @@ void FlowEditorPage::showProperties() {
   rendering_ = true;
   int i = steps_->currentRow();
   bool valid = i >= 0 && i < document_.steps.size();
+  propertyHint_->setVisible(!valid);
   FlowStep s = valid ? document_.steps[i] : FlowStep{};
   bool click = valid && s.kind == FlowStepKind::Click;
   for (auto* w : QVector<QWidget*>{x_, y_, count_, button_})
@@ -304,6 +324,31 @@ void FlowEditorPage::showProperties() {
   key_->setKeySequence(QKeySequence::fromString(s.value, QKeySequence::PortableText));
   text_->setPlainText(s.value);
   rendering_ = false;
+  updateActions();
+}
+void FlowEditorPage::updateSavedLabel() {
+  savedLabel_->setText(isDirty()    ? "流程尚未保存 · 仅在本次会话保留"
+                       : persisted_ ? "流程已保存到本机"
+                                    : "新流程 · 尚未保存到本机");
+}
+void FlowEditorPage::updateActions() {
+  const bool editable = !busy_ && !blocked_;
+  const int index = steps_->currentRow();
+  const bool selected = index >= 0 && index < document_.steps.size();
+  const bool hasSteps = !document_.steps.isEmpty();
+  const bool canAdd = document_.steps.size() < 1000;
+  open_->setEnabled(editable && !library_->currentData().toString().isEmpty());
+  add_->setEnabled(editable && canAdd);
+  add_->setToolTip(canAdd ? "添加到所选步骤后面" : "已达到 1000 个步骤上限，请先删除步骤。");
+  copy_->setEnabled(editable && selected && canAdd);
+  remove_->setEnabled(editable && selected);
+  up_->setEnabled(editable && selected && index > 0);
+  down_->setEnabled(editable && selected && index + 1 < document_.steps.size());
+  undo_->setEnabled(editable && historyIndex_ > 0);
+  redo_->setEnabled(editable && historyIndex_ + 1 < history_.size());
+  save_->setEnabled(editable && hasSteps);
+  run_->setEnabled(editable && hasSteps);
+  trial_->setEnabled(editable && hasSteps);
 }
 void FlowEditorPage::updateProperties() {
   if (rendering_)
@@ -371,11 +416,16 @@ void FlowEditorPage::confirmScreens(const QVector<QRect>& screens) {
   render();
 }
 void FlowEditorPage::setLibrary(const QVector<FlowDocument>& docs) {
+  const QString selected = library_->currentData().toString();
   library_->clear();
   library_->addItem("选择已保存的流程", "");
   for (const auto& d : docs)
     library_->addItem(QString("%1 · %2 步 · %3").arg(d.name).arg(d.steps.size()).arg(d.id.left(8)),
                       d.id);
+  const int index = library_->findData(persisted_ ? document_.id : selected);
+  if (index >= 0)
+    library_->setCurrentIndex(index);
+  updateActions();
 }
 void FlowEditorPage::setCapturing() {
   setRunning(MacroControllerState::Idle, true);
@@ -387,10 +437,10 @@ void FlowEditorPage::setPausePending() {
 }
 void FlowEditorPage::setRunning(MacroControllerState state, bool blocked) {
   bool busy = state != MacroControllerState::Idle;
+  busy_ = busy;
+  blocked_ = blocked;
   editing_->setEnabled(!busy && !blocked);
-  save_->setEnabled(!busy && !blocked);
-  run_->setEnabled(!busy && !blocked);
-  trial_->setEnabled(!busy && !blocked);
+  updateActions();
   pause_->setEnabled(busy && !blocked);
   pause_->setText(state == MacroControllerState::Paused ? "继续" : "暂停");
   stop_->setEnabled(busy && !blocked);

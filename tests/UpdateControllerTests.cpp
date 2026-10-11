@@ -17,6 +17,7 @@ struct Response {
   QByteArray body;
   QNetworkReply::NetworkError error = QNetworkReply::NoError;
   int chunkSize = 32;
+  int httpStatus = 200;
 };
 class Reply final : public QNetworkReply {
 public:
@@ -24,7 +25,7 @@ public:
       : QNetworkReply(parent), response_(std::move(response)) {
     setRequest(request);
     setUrl(request.url());
-    setAttribute(QNetworkRequest::HttpStatusCodeAttribute, 200);
+    setAttribute(QNetworkRequest::HttpStatusCodeAttribute, response_.httpStatus);
     open(QIODevice::ReadOnly);
     QTimer::singleShot(0, this, [this] { deliver(); });
   }
@@ -147,7 +148,64 @@ private slots:
   void portableBuildCannotInstall();
   void networkFailureAndInvalidMetadataRecover();
   void closingDuringVerificationCleansDownloadedPackage();
+  void rejectsPreviewAndMismatchedAssets();
+  void removedUpdateReturnsToVersionCheck();
 };
+void UpdateControllerTests::rejectsPreviewAndMismatchedAssets() {
+  Network network;
+  QTemporaryDir installed;
+  UpdateController c([] { return true; }, dependencies(network, installed.path()));
+  QSignalSpy actions(&c, &UpdateController::actionChanged);
+  for (const QString& flag : {QString("draft"), QString("prerelease")}) {
+    auto metadata = QJsonDocument::fromJson(release()).object();
+    metadata.insert(flag, true);
+    network.responses.append({QJsonDocument(metadata).toJson()});
+    c.handleAction();
+    c.handleAction();
+    QTRY_COMPARE(lastAction(actions), QString("重新检查"));
+  }
+  QCOMPARE(network.requests.size(), 2);
+  for (bool wrongName : {true, false}) {
+    auto metadata = QJsonDocument::fromJson(release()).object();
+    auto assets = metadata["assets"].toArray();
+    auto asset = assets[0].toObject();
+    asset.insert(wrongName ? "name" : "browser_download_url",
+                 wrongName ? "OtherProduct" + suffix()
+                           : asset["browser_download_url"].toString() + "?download=1");
+    assets[0] = asset;
+    metadata.insert("assets", assets);
+    network.responses.append({QJsonDocument(metadata).toJson()});
+    c.handleAction();
+    QTRY_COMPARE(lastAction(actions), QString("重新检查"));
+  }
+  queueUpdate(network);
+  c.handleAction();
+  QTRY_COMPARE(lastAction(actions), QString("下载更新"));
+}
+
+void UpdateControllerTests::removedUpdateReturnsToVersionCheck() {
+  for (bool missingChecksum : {true, false}) {
+    Network network;
+    QTemporaryDir installed;
+    network.responses.append({release()});
+    if (!missingChecksum)
+      network.responses.append({QByteArray(64, '0')});
+    network.responses.append({{}, QNetworkReply::ContentNotFoundError, 32, 404});
+    UpdateController c([] { return true; }, dependencies(network, installed.path()));
+    QSignalSpy actions(&c, &UpdateController::actionChanged),
+        quit(&c, &UpdateController::quitRequested);
+    c.handleAction();
+    QTRY_COMPARE(lastAction(actions), QString("下载更新"));
+    c.handleAction();
+    QTRY_COMPARE(lastAction(actions), QString("重新检查"));
+    QCOMPARE(quit.count(), 0);
+    queueUpdate(network);
+    c.handleAction();
+    QTRY_COMPARE(lastAction(actions), QString("下载更新"));
+    c.handleAction();
+    QTRY_COMPARE(lastAction(actions), QString("重启并更新"));
+  }
+}
 void UpdateControllerTests::detectsNewerRelease() {
   QVERIFY(isReleaseNewer("v0.5.2", "0.5.1"));
   QVERIFY(isReleaseNewer("0.6.0", "0.5.9"));

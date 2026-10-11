@@ -9,6 +9,7 @@ class PresetsAboutPage final : public QWidget {
 public:
   explicit PresetsAboutPage(QWidget* parent = nullptr);
   void setPresetNames(const QStringList& names, const QString& selected = {});
+  void setCurrentProfileName(const QString& name);
   QString selectedPresetName() const;
   QString productName() const;
   QString versionText() const;
@@ -28,7 +29,9 @@ signals:
   void updateCancelRequested();
 
 private:
+  bool mutationEnabled_ = true;
   QLabel* emptyHint_ = nullptr;
+  QLabel* currentProfile_ = nullptr;
   void updateActions();
   QListWidget* list_ = nullptr;
   QPushButton* new_ = nullptr;

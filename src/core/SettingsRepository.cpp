@@ -17,7 +17,14 @@ bool SettingsRepository::hasProfile(const QString& name) const {
   return !readProfileMap(name).isEmpty();
 }
 
-void SettingsRepository::saveProfile(const ClickProfile& profile) {
+bool SettingsRepository::validProfileName(const QString& name) {
+  return !name.trimmed().isEmpty() && name == name.trimmed() && !name.contains('/') &&
+         !name.contains('\\');
+}
+
+bool SettingsRepository::saveProfile(const ClickProfile& profile) {
+  if (!validProfileName(profile.name))
+    return false;
   settings_.beginGroup(profileKey(profile.name));
   const QVariantMap data = ClickTypes::toVariantMap(profile);
   for (auto it = data.cbegin(); it != data.cend(); ++it) {
@@ -25,6 +32,7 @@ void SettingsRepository::saveProfile(const ClickProfile& profile) {
   }
   settings_.endGroup();
   settings_.sync();
+  return settings_.status() == QSettings::NoError;
 }
 
 std::optional<ClickProfile> SettingsRepository::loadProfile(const QString& name) const {
@@ -36,7 +44,7 @@ std::optional<ClickProfile> SettingsRepository::loadProfile(const QString& name)
 }
 
 bool SettingsRepository::renameProfile(const QString& oldName, const QString& newName) {
-  if (oldName == newName || oldName.isEmpty() || newName.isEmpty() || !hasProfile(oldName) ||
+  if (oldName == newName || !validProfileName(newName) || !hasProfile(oldName) ||
       hasProfile(newName)) {
     return false;
   }
@@ -47,9 +55,8 @@ bool SettingsRepository::renameProfile(const QString& oldName, const QString& ne
   }
 
   profile->name = newName;
-  saveProfile(*profile);
-  deleteProfile(oldName);
-  return true;
+  // 新名称写入成功后才删除原预设，写入失败时保留原数据。
+  return saveProfile(*profile) && deleteProfile(oldName);
 }
 
 bool SettingsRepository::deleteProfile(const QString& name) {
@@ -58,10 +65,10 @@ bool SettingsRepository::deleteProfile(const QString& name) {
   }
   settings_.remove(profileKey(name));
   settings_.sync();
-  return true;
+  return settings_.status() == QSettings::NoError;
 }
 
-void SettingsRepository::saveLastUsedProfile(const ClickProfile& profile) {
+bool SettingsRepository::saveLastUsedProfile(const ClickProfile& profile) {
   settings_.beginGroup("lastUsed");
   const QVariantMap data = ClickTypes::toVariantMap(profile);
   for (auto it = data.cbegin(); it != data.cend(); ++it) {
@@ -69,6 +76,7 @@ void SettingsRepository::saveLastUsedProfile(const ClickProfile& profile) {
   }
   settings_.endGroup();
   settings_.sync();
+  return settings_.status() == QSettings::NoError;
 }
 
 std::optional<ClickProfile> SettingsRepository::loadLastUsedProfile() const {
@@ -95,6 +103,8 @@ void SettingsRepository::setMacroSafetyAcknowledged(bool acknowledged) {
 }
 
 QVariantMap SettingsRepository::readProfileMap(const QString& name) const {
+  if (!validProfileName(name))
+    return {};
   settings_.beginGroup(profileKey(name));
   const QStringList keys = settings_.childKeys();
   QVariantMap data;
