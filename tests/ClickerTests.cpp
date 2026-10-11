@@ -49,9 +49,43 @@ class ClickerTests : public QObject {
   void controllerRejectsWithoutPermission();
   void controllerSendsKeyboardTaps();
   void controllerUsesExclusiveAutomationOwnership();
+  void stopFromProgressRemainsStopped();
+  void stopDuringStartDoesNotStartCountdown();
   void settingsRepositoryCrud();
   void settingsRepositoryPersistsMacroSafetyAcknowledgement();
 };
+
+void ClickerTests::stopFromProgressRemainsStopped() {
+  FakeClickBackend backend;
+  AutomationCoordinator coordinator;
+  ClickController controller(&backend, &coordinator);
+  ClickProfile profile;
+  profile.repeatMode = RepeatMode::Finite;
+  profile.repeatCount = 1;
+  connect(&controller, &ClickController::clicksExecutedChanged, &controller,
+          [&controller](int count) { if (count > 0) controller.stop(); });
+  controller.start(profile);
+  QVERIFY(!controller.isRunning());
+  QCOMPARE(controller.currentStatus(), QString("已停止"));
+  QCOMPARE(coordinator.activity(), AutomationActivity::Idle);
+  QTest::qWait(10);
+  QCOMPARE(backend.clickCount, 1);
+}
+
+void ClickerTests::stopDuringStartDoesNotStartCountdown() {
+  FakeClickBackend backend;
+  ClickController controller(&backend);
+  ClickProfile profile;
+  profile.countdownSeconds = 5;
+  connect(&controller, &ClickController::runningChanged, &controller,
+          [&controller](bool running) { if (running) controller.emergencyStop(); });
+  QSignalSpy countdown(&controller, &ClickController::countdownChanged);
+  controller.start(profile);
+  QVERIFY(!controller.isRunning());
+  QCOMPARE(controller.currentStatus(), QString("已紧急停止"));
+  QCOMPARE(backend.clickCount, 0);
+  for (const auto& notification : countdown) QCOMPARE(notification.first().toInt(), 0);
+}
 
 void ClickerTests::clickProfileRoundTrip() {
   ClickProfile profile;

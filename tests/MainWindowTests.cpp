@@ -1,5 +1,7 @@
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCloseEvent>
+#include <QMessageBox>
 #include <QFile>
 #include <QLabel>
 #include <QLineEdit>
@@ -646,6 +648,37 @@ void MainWindowTests::macroServicesRecordPersistAndReplay() {
   observedRecorder->capture(up);
   recordButton->click();
 
+  auto* saveButton = window.findChild<QPushButton*>("macroSaveDraftButton");
+  QVERIFY(saveButton);
+  window.findChild<NavigationSidebar*>()->setCurrentPage(ShellPage::MacroRecording);
+  window.show();
+  for (const QSize size : {QSize(820, 560), QSize(960, 680)}) {
+    window.resize(size);
+    QTest::qWait(200);
+    QCOMPARE(window.size(), size);
+    auto* pages = window.findChild<QStackedWidget*>("contentPages");
+    auto* scroll = qobject_cast<QScrollArea*>(pages->currentWidget());
+    QVERIFY(scroll);
+    QCOMPARE(scroll->horizontalScrollBar()->maximum(), 0);
+    QVERIFY(recordButton->isVisible());
+    QVERIFY(window.rect().contains(recordButton->mapTo(&window, recordButton->rect().bottomRight())));
+    const auto position = recordButton->mapTo(&window, QPoint());
+    scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+    QCOMPARE(recordButton->mapTo(&window, QPoint()), position);
+    scroll->verticalScrollBar()->setValue(0);
+    QVERIFY(window.grab().save(QDir::temp().filePath(
+        QString("clickflow-phase-one-draft-%1.png").arg(size.width()))));
+  }
+  QVERIFY(MacroRepository(directory.path()).loadAll().isEmpty());
+  QTimer::singleShot(0, [] {
+    auto* prompt = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+    if (prompt) prompt->done(QMessageBox::Cancel);
+  });
+  QCloseEvent close;
+  QApplication::sendEvent(&window, &close);
+  QVERIFY(!close.isAccepted());
+  QVERIFY(saveButton->isEnabled());
+  saveButton->click();
   MacroRepository persisted(directory.path());
   const auto saved = persisted.loadAll();
   QCOMPARE(saved.size(), 1);

@@ -71,4 +71,5 @@ class MacroController final : public QObject {
   qsizetype eventIndex_ = 0;
   int completedRounds_ = 0;
   qint64 roundStartUs_ = 0;
+  quint64 playbackGeneration_ = 0;
 };

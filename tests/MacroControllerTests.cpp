@@ -105,6 +105,10 @@ class MacroControllerTests : public QObject {
   void playsAtScaledOffsetsAndRepeats();
   void playbackFailureReleasesInputsAndOwnership();
   void rejectsWhenAnotherAutomationActivityOwnsCoordinator();
+  void overdueEventsYieldAndCanBeStopped();
+  void stopFromProgressDoesNotInjectMoreEvents();
+  void prepareFailureCancelsPlayer();
+  void stopAtPlaybackStartDoesNotInject();
 };
 
 void MacroControllerTests::recordsCompressesAndReleasesOwnership() {
@@ -197,6 +201,87 @@ void MacroControllerTests::rejectsWhenAnotherAutomationActivityOwnsCoordinator()
   QVERIFY(error.contains("连点"));
   QVERIFY(!recorder.running);
   QCOMPARE(controller.state(), MacroControllerState::Idle);
+}
+
+void MacroControllerTests::overdueEventsYieldAndCanBeStopped() {
+  FakeMacroRecorder recorder;
+  FakeMacroPlayer player;
+  AutomationCoordinator coordinator;
+  MacroController controller(&recorder, &player, &coordinator);
+  auto sequence = shortSequence();
+  sequence.playback.repeatCount = 1;
+  sequence.events.clear();
+  for (int i = 0; i < 1000; ++i) {
+    MacroEvent event;
+    event.type = MacroEventType::MouseMove;
+    event.offsetUs = 0;
+    sequence.events.append(event);
+  }
+  QString error;
+  QVERIFY2(controller.startPlayback(sequence, &error), qPrintable(error));
+  QVERIFY(!player.injected.isEmpty());
+  QVERIFY(player.injected.size() < sequence.events.size());
+  const auto dispatched = player.injected.size();
+  QTimer::singleShot(0, &controller, &MacroController::emergencyStop);
+  QTRY_COMPARE(controller.state(), MacroControllerState::Idle);
+  QVERIFY(player.injected.size() < sequence.events.size());
+  const auto stoppedCount = player.injected.size();
+  QVERIFY(stoppedCount >= dispatched);
+  QTest::qWait(10);
+  QCOMPARE(player.injected.size(), stoppedCount);
+  QCOMPARE(coordinator.activity(), AutomationActivity::Idle);
+  QCOMPARE(player.cancelCalls, 1);
+}
+
+void MacroControllerTests::stopFromProgressDoesNotInjectMoreEvents() {
+  FakeMacroRecorder recorder;
+  FakeMacroPlayer player;
+  AutomationCoordinator coordinator;
+  MacroController controller(&recorder, &player, &coordinator);
+  QSignalSpy finished(&controller, &MacroController::playbackFinished);
+  auto sequence = shortSequence();
+  sequence.playback.repeatCount = 1;
+  sequence.events[1].offsetUs = 0;
+  connect(&controller, &MacroController::playbackProgress, &controller,
+          &MacroController::stop);
+  QString error;
+  QVERIFY2(controller.startPlayback(sequence, &error), qPrintable(error));
+  QCOMPARE(player.injected.size(), 1);
+  QCOMPARE(controller.state(), MacroControllerState::Idle);
+  QCOMPARE(coordinator.activity(), AutomationActivity::Idle);
+  QCOMPARE(finished.count(), 0);
+  QTest::qWait(10);
+  QCOMPARE(player.injected.size(), 1);
+}
+
+void MacroControllerTests::prepareFailureCancelsPlayer() {
+  FakeMacroRecorder recorder;
+  FakeMacroPlayer player;
+  player.prepareResult = false;
+  AutomationCoordinator coordinator;
+  MacroController controller(&recorder, &player, &coordinator);
+  QString error;
+  QVERIFY(!controller.startPlayback(shortSequence(), &error));
+  QCOMPARE(player.cancelCalls, 1);
+  QCOMPARE(coordinator.activity(), AutomationActivity::Idle);
+  QVERIFY(player.injected.isEmpty());
+}
+
+void MacroControllerTests::stopAtPlaybackStartDoesNotInject() {
+  FakeMacroRecorder recorder;
+  FakeMacroPlayer player;
+  AutomationCoordinator coordinator;
+  MacroController controller(&recorder, &player, &coordinator);
+  connect(&controller, &MacroController::stateChanged, &controller,
+          [&controller](MacroControllerState state) {
+            if (state == MacroControllerState::Playing) controller.emergencyStop();
+          });
+  QSignalSpy status(&controller, &MacroController::statusChanged);
+  QString error;
+  QVERIFY(controller.startPlayback(shortSequence(), &error));
+  QVERIFY(player.injected.isEmpty());
+  QCOMPARE(controller.state(), MacroControllerState::Idle);
+  QCOMPARE(status.last().first().toString(), QString("宏回放已紧急停止"));
 }
 
 QTEST_GUILESS_MAIN(MacroControllerTests)

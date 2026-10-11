@@ -10,6 +10,7 @@ class QComboBox;
 class QLabel;
 class QPushButton;
 class QSpinBox;
+class QFormLayout;
 class WindowPickerButton;
 
 enum class MacroPageActivity {
@@ -36,6 +37,8 @@ class MacroRecordingPage final : public QWidget {
   void setRecordingProgress(qint64 durationUs, int eventCount);
   void setPlaybackProgress(int eventIndex, int eventCount);
   void setError(const QString& message);
+  void setDraftId(const QString& id);
+  QWidget* actionPanel() const { return actionPanel_; }
 
   QString selectedMacroId() const;
   MacroPlaybackSettings playbackSettings() const;
@@ -48,6 +51,8 @@ class MacroRecordingPage final : public QWidget {
                      const MacroPlaybackSettings& settings);
   void deleteRequested(const QString& macroId);
   void renameRequested(const QString& macroId);
+  void saveDraftRequested();
+  void trialRequested(const QString& macroId);
   void refreshWindowsRequested();
   void windowPointSelected(const QPoint& globalPoint);
 
@@ -77,5 +82,10 @@ class MacroRecordingPage final : public QWidget {
   QSpinBox* loopDelay_ = nullptr;
   QPushButton* record_ = nullptr;
   QPushButton* play_ = nullptr;
+  QPushButton* saveDraft_ = nullptr;
+  QPushButton* trial_ = nullptr;
+  QString draftId_;
+  QWidget* actionPanel_ = nullptr;
+  QFormLayout* targetForm_ = nullptr;
   bool supported_ = true;
 };

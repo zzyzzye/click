@@ -48,9 +48,14 @@ void WorkflowUiStateController::apply() {
     return;
   }
   if (clickRunning_) {
+    clickBlocked_ = true;
     macroPage_->setActivity(MacroPageActivity::Unavailable);
     macroPage_->setError("连点运行中，键鼠录制与回放暂不可用。");
     return;
+  }
+  if (clickBlocked_) {
+    clickBlocked_ = false;
+    macroPage_->setError({});
   }
   if (macroState_ == MacroControllerState::Recording) {
     macroPage_->setActivity(MacroPageActivity::Recording);

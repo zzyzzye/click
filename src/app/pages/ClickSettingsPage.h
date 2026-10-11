@@ -45,4 +45,6 @@ class ClickSettingsPage final : public QWidget {
   QSpinBox* jitter_ = nullptr;
   QSpinBox* countdown_ = nullptr;
   QCheckBox* alwaysOnTop_ = nullptr;
+  QCheckBox* advancedToggle_ = nullptr;
+  QWidget* advancedOptions_ = nullptr;
 };

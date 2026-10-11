@@ -22,6 +22,7 @@ class ClickFlowPageTests : public QObject {
   void clickSettingsRoundTrip();
   void keyboardInputKeepsOneCombination();
   void conditionalFieldsPreserveTheirValues();
+  void advancedOptionsCollapseWithoutChangingProfile();
   void hotkeysRoundTripAndValidate();
   void presetsAndAboutExposeProductState();
   void macroPageKeepsHotkeysVisibleAndEmitsSettings();
@@ -91,6 +92,26 @@ void ClickFlowPageTests::conditionalFieldsPreserveTheirValues() {
   page.applyToProfile(restored);
   QCOMPARE(restored.fixedPoint, QPoint(320, 240));
   QCOMPARE(restored.repeatCount, 17);
+}
+
+void ClickFlowPageTests::advancedOptionsCollapseWithoutChangingProfile() {
+  ClickSettingsPage page;
+  auto* toggle = page.findChild<QCheckBox*>("clickAdvancedToggle");
+  auto* options = page.findChild<QWidget*>("clickAdvancedOptions");
+  QVERIFY(!toggle->isChecked());
+  QVERIFY(options->isHidden());
+  ClickProfile profile;
+  profile.jitterRadius = 4;
+  profile.countdownSeconds = 3;
+  page.setProfile(profile);
+  QVERIFY(toggle->isChecked());
+  QVERIFY(!options->isHidden());
+  toggle->click();
+  QVERIFY(options->isHidden());
+  ClickProfile restored;
+  page.applyToProfile(restored);
+  QCOMPARE(restored.jitterRadius, 4);
+  QCOMPARE(restored.countdownSeconds, 3);
 }
 
 void ClickFlowPageTests::keyboardInputKeepsOneCombination() {
@@ -209,6 +230,14 @@ void ClickFlowPageTests::macroPageKeepsHotkeysVisibleAndEmitsSettings() {
   playButton->click();
   QCOMPARE(playSpy.count(), 1);
   QCOMPARE(playSpy.first().at(0).toString(), sequence.id);
+  page.setDraftId(sequence.id);
+  QVERIFY(!playButton->isEnabled());
+  auto* save = page.findChild<QPushButton*>("macroSaveDraftButton");
+  auto* trial = page.findChild<QPushButton*>("macroTrialButton");
+  QVERIFY(save->isEnabled());
+  QVERIFY(trial->isEnabled());
+  QVERIFY(!page.findChild<QPushButton*>("macroDeleteButton")->isEnabled());
+  QVERIFY(!page.findChild<QPushButton*>("macroRenameButton")->isEnabled());
 
   page.setActivity(MacroPageActivity::Recording);
   QVERIFY(recordHotkey->isVisibleTo(&page));
@@ -216,6 +245,8 @@ void ClickFlowPageTests::macroPageKeepsHotkeysVisibleAndEmitsSettings() {
   QVERIFY(emergencyHotkey->isVisibleTo(&page));
   QCOMPARE(recordButton->text(), QString("停止录制"));
   QVERIFY(!playButton->isEnabled());
+  QVERIFY(!save->isEnabled());
+  QVERIFY(!trial->isEnabled());
 }
 
 void ClickFlowPageTests::controlsUseConsistentComfortableHeights() {

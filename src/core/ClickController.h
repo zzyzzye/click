@@ -63,5 +63,6 @@ class ClickController : public QObject {
   int countdownRemaining_ = 0;
   bool running_ = false;
   bool ownsAutomation_ = false;
+  quint64 runGeneration_ = 0;
 };
 

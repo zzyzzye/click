@@ -66,6 +66,7 @@ class MainWindow : public QMainWindow {
   void installInputFilters();
   void connectControllers();
   void showEvent(QShowEvent* event) override;
+  void closeEvent(QCloseEvent* event) override;
   bool nativeEvent(const QByteArray& eventType, void* message,
                    qintptr* result) override;
   void changeEvent(QEvent* event) override;
@@ -92,4 +93,5 @@ class MainWindow : public QMainWindow {
   MacroRecordingPage* macroPage_ = nullptr;
   PresetsAboutPage* presetsPage_ = nullptr;
   ActionBar* actionBar_ = nullptr;
+  QWidget* macroActionPanel_ = nullptr;
 };

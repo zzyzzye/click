@@ -40,7 +40,7 @@ ProfileController::ProfileController(
     const ClickProfile profile = currentProfile();
     if (!applyingProfile_) repository_->saveLastUsedProfile(profile);
     actionBar_->setSummary(clickPage_->summary());
-    emit statusChanged("配置已自动保存");
+    if (!applyingProfile_) emit statusChanged("连点设置已自动保存");
   });
 
   connect(presetsPage_, &PresetsAboutPage::saveRequested, this,

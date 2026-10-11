@@ -1,6 +1,8 @@
 #include "app/controllers/MacroWorkflowController.h"
 
 #include <QDateTime>
+#include <QApplication>
+#include <QAbstractButton>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -54,6 +56,16 @@ MacroWorkflowController::MacroWorkflowController(
           &MacroWorkflowController::startRecording);
   connect(macroPage_, &MacroRecordingPage::playRequested, this,
           &MacroWorkflowController::startPlayback);
+  connect(macroPage_, &MacroRecordingPage::saveDraftRequested, this,
+          [this] { saveDraft(); });
+  connect(macroPage_, &MacroRecordingPage::trialRequested, this,
+          [this](const QString& id) {
+            auto settings = macroPage_->playbackSettings();
+            settings.infinite = false;
+            settings.repeatCount = 1;
+            settings.loopDelayMs = 0;
+            startPlayback(id, settings);
+          });
   connect(macroPage_, &MacroRecordingPage::stopRequested, &controller_,
           &MacroController::stop);
   connect(macroPage_, &MacroRecordingPage::deleteRequested, this,
@@ -85,12 +97,13 @@ MacroWorkflowController::MacroWorkflowController(
 void MacroWorkflowController::initialize() {
   macroPage_->setSupported(
       supported_, supported_ ? QString()
-                             : "键鼠录制当前仅支持 Windows 10/11。");
+                             : "键鼠录制当前仅支持 Windows 10/11。此平台可前往“连点设置”使用鼠标或键盘连点。");
   refreshMacroList();
   refreshWindows();
 }
 
 void MacroWorkflowController::toggleRecording() {
+  if (QApplication::activeModalWidget()) return;
   if (controller_.isRecording()) {
     controller_.stop();
   } else {
@@ -99,6 +112,7 @@ void MacroWorkflowController::toggleRecording() {
 }
 
 void MacroWorkflowController::togglePlayback() {
+  if (QApplication::activeModalWidget()) return;
   if (controller_.isPlaying()) {
     controller_.stop();
   } else {
@@ -113,7 +127,7 @@ void MacroWorkflowController::emergencyStop() {
 
 void MacroWorkflowController::startRecording(
     const MacroRecordingOptions& options) {
-  if (!supported_) {
+  if (!supported_ || controller_.state() != MacroControllerState::Idle) {
     macroPage_->setError("键鼠录制服务不可用。");
     return;
   }
@@ -123,6 +137,7 @@ void MacroWorkflowController::startRecording(
     return;
   }
   if (!confirmSafety()) return;
+  if (!resolveUnsavedDraft()) return;
 
   QString error;
   if (!controller_.startRecording(options, &error)) {
@@ -142,34 +157,68 @@ void MacroWorkflowController::startPlayback(
   }
   MacroSequence sequence = *saved;
   sequence.playback = settings;
+  if (draft_ && draft_->id == macroId) {
+    // 草稿无论通过按钮还是热键启动，都只试运行一轮。
+    sequence.playback.infinite = false;
+    sequence.playback.repeatCount = 1;
+    sequence.playback.loopDelayMs = 0;
+  }
   sequence.modifiedAt = QDateTime::currentDateTimeUtc();
   QString error;
-  if (!repository_->save(sequence, &error) ||
-      !controller_.startPlayback(sequence, &error)) {
+  if (!confirmSafety()) return;
+  // 运行只使用快照，试运行和失败启动都不改写已保存的文件。
+  macroPage_->setError({});
+  if (!controller_.startPlayback(sequence, &error)) {
     macroPage_->setError(error);
     statusStrip_->setStatus(error);
-  } else {
-    macroPage_->setError({});
   }
 }
 
 void MacroWorkflowController::handleRecordingCompleted(
     const MacroSequence& sequence) {
-  if (!repository_) return;
-  MacroSequence saved = sequence;
+  draft_ = sequence;
+  refreshMacroList(sequence.id);
+  statusStrip_->setStatus("录制草稿未保存，可先试运行一次");
+}
+
+bool MacroWorkflowController::saveDraft() {
+  if (!repository_ || !draft_ || controller_.state() != MacroControllerState::Idle) return false;
+  MacroSequence saved = *draft_;
+  saved.playback = macroPage_->playbackSettings();
   saved.name = macroNameProvider_(dialogParent_).trimmed();
   if (saved.name.isEmpty()) {
-    statusStrip_->setStatus("录制未保存");
-    return;
+    statusStrip_->setStatus("录制草稿未保存，可继续试运行或稍后保存");
+    return false;
   }
   saved.modifiedAt = QDateTime::currentDateTimeUtc();
   QString error;
   if (!repository_->save(saved, &error)) {
     macroPage_->setError(error);
-    return;
+    return false;
   }
+  draft_.reset();
   refreshMacroList(saved.id);
+  macroPage_->setError({});
   statusStrip_->setStatus("宏已保存");
+  return true;
+}
+
+bool MacroWorkflowController::resolveUnsavedDraft() {
+  if (!draft_) return true;
+  QMessageBox prompt(QMessageBox::Question, "录制尚未保存",
+                     "当前录制草稿仅保留在本次会话中。是否先保存？",
+                     QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+                     dialogParent_);
+  prompt.button(QMessageBox::Save)->setText("保存录制");
+  prompt.button(QMessageBox::Discard)->setText("放弃草稿");
+  prompt.button(QMessageBox::Cancel)->setText("取消");
+  prompt.setDefaultButton(QMessageBox::Cancel);
+  const auto result = prompt.exec();
+  if (result == QMessageBox::Save) return saveDraft();
+  if (result != QMessageBox::Discard) return false;
+  draft_.reset();
+  refreshMacroList();
+  return true;
 }
 
 void MacroWorkflowController::deleteMacro(const QString& macroId) {
@@ -238,7 +287,14 @@ void MacroWorkflowController::refreshMacroList(const QString& selectedId) {
   }
   QStringList warnings;
   macros_ = repository_->loadAll(&warnings);
-  macroPage_->setMacros(macros_, selectedId);
+  auto displayed = macros_;
+  if (draft_) {
+    auto draft = *draft_;
+    draft.name = "未保存的录制草稿";
+    displayed.prepend(draft);
+  }
+  macroPage_->setDraftId(draft_ ? draft_->id : QString());
+  macroPage_->setMacros(displayed, selectedId);
   if (!warnings.isEmpty()) macroPage_->setError(warnings.first());
 }
 
@@ -260,6 +316,7 @@ void MacroWorkflowController::refreshWindows(quintptr selectedNativeId) {
 
 std::optional<MacroSequence> MacroWorkflowController::findMacro(
     const QString& id) const {
+  if (draft_ && draft_->id == id) return draft_;
   const auto match =
       std::find_if(macros_.cbegin(), macros_.cend(),
                    [&id](const MacroSequence& sequence) {

@@ -41,6 +41,9 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   root->setSizeConstraint(QLayout::SetMinimumSize);
   root->setContentsMargins(0, 0, 0, 0);
   root->setSpacing(16);
+  auto* guide = new QLabel("选择按键和间隔后，点击底部“开始连点”。运行中可随时停止。", this);
+  guide->setWordWrap(true);
+  root->addWidget(guide);
 
   QGridLayout* basic = nullptr;
   auto* basicCard = card("基础设置", this, &basic);
@@ -107,9 +110,22 @@ ClickSettingsPage::ClickSettingsPage(QWidget* parent) : QWidget(parent) {
   alwaysOnTop_->setObjectName("alwaysOnTopCheckBox");
   addRow(behavior, 0, "重复方式", repeatMode_);
   addRow(behavior, 1, "点击次数", repeatCount_);
-  addRow(behavior, 2, "抖动半径", jitter_);
-  addRow(behavior, 3, "开始倒计时", countdown_);
-  addRow(behavior, 4, "窗口", alwaysOnTop_);
+  advancedToggle_ = new QCheckBox("更多设置（抖动、倒计时、置顶）", behaviorCard);
+  advancedToggle_->setObjectName("clickAdvancedToggle");
+  behavior->addWidget(advancedToggle_, 2, 0, 1, 2);
+  advancedOptions_ = new QWidget(behaviorCard);
+  advancedOptions_->setObjectName("clickAdvancedOptions");
+  auto* advanced = new QGridLayout(advancedOptions_);
+  advanced->setContentsMargins(0, 0, 0, 0);
+  advanced->setHorizontalSpacing(16);
+  advanced->setVerticalSpacing(12);
+  advanced->setColumnStretch(1, 1);
+  addRow(advanced, 0, "抖动半径", jitter_);
+  addRow(advanced, 1, "开始倒计时", countdown_);
+  addRow(advanced, 2, "窗口", alwaysOnTop_);
+  behavior->addWidget(advancedOptions_, 3, 0, 1, 2);
+  advancedOptions_->hide();
+  connect(advancedToggle_, &QCheckBox::toggled, advancedOptions_, &QWidget::setVisible);
   root->addWidget(behaviorCard);
   root->addStretch();
 
@@ -138,6 +154,8 @@ void ClickSettingsPage::setProfile(const ClickProfile& p) {
   repeatMode_->setCurrentIndex(repeatMode_->findData(int(p.repeatMode)));
   repeatCount_->setValue(p.repeatCount); jitter_->setValue(p.jitterRadius);
   countdown_->setValue(p.countdownSeconds); alwaysOnTop_->setChecked(p.alwaysOnTop);
+  // 加载带高级参数的配置时主动展开，避免隐藏正在生效的设置。
+  advancedToggle_->setChecked(p.jitterRadius != 0 || p.countdownSeconds != 0 || p.alwaysOnTop);
   updateDependencies();
 }
 void ClickSettingsPage::applyToProfile(ClickProfile& p) const {

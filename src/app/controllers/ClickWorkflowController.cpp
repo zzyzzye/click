@@ -1,6 +1,7 @@
 #include "app/controllers/ClickWorkflowController.h"
 
 #include <QDesktopServices>
+#include <QApplication>
 #include <QMessageBox>
 #include <QUrl>
 #include <QWidget>
@@ -64,6 +65,7 @@ void ClickWorkflowController::toggle() {
     controller_.stop();
     return;
   }
+  if (QApplication::activeModalWidget()) return;
   const ClickProfile profile = profileProvider_();
   emit profilePersistRequested(profile);
   controller_.start(profile);

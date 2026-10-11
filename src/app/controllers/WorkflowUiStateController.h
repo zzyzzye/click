@@ -36,5 +36,6 @@ class WorkflowUiStateController final : public QObject {
   ActionBar* actionBar_ = nullptr;
   bool macroSupported_ = false;
   bool clickRunning_ = false;
+  bool clickBlocked_ = false;
   MacroControllerState macroState_ = MacroControllerState::Idle;
 };

@@ -49,18 +49,24 @@ void ClickController::start(const ClickProfile& profile) {
   activeProfile_.countdownSeconds = std::max(0, activeProfile_.countdownSeconds);
 
   running_ = true;
+  const auto generation = ++runGeneration_;
   remainingClicks_ =
       activeProfile_.repeatMode == RepeatMode::Finite ? activeProfile_.repeatCount : -1;
   clicksExecuted_ = 0;
   emit remainingClicksChanged(remainingClicks_);
+  if (!running_ || generation != runGeneration_) return;
   emit clicksExecutedChanged(clicksExecuted_);
+  if (!running_ || generation != runGeneration_) return;
   emit runningChanged(true);
+  if (!running_ || generation != runGeneration_) return;
 
   if (activeProfile_.countdownSeconds > 0) {
     state_ = State::Countdown;
     countdownRemaining_ = activeProfile_.countdownSeconds;
     emit countdownChanged(countdownRemaining_);
+    if (!running_ || generation != runGeneration_) return;
     setStatus(QString("将在 %1 秒后开始").arg(countdownRemaining_));
+    if (!running_ || generation != runGeneration_) return;
     countdownTimer_.start();
     return;
   }
@@ -125,10 +131,12 @@ void ClickController::beginRun() {
   }
 
   state_ = State::Running;
+  const auto generation = runGeneration_;
   setStatus("运行中");
+  if (!running_ || generation != runGeneration_) return;
   performClick();
 
-  if (running_) {
+  if (running_ && generation == runGeneration_) {
     clickTimer_.start(activeProfile_.intervalMs);
   }
 }
@@ -138,6 +146,7 @@ void ClickController::performClick() {
     return;
   }
 
+  const auto generation = runGeneration_;
   const bool succeeded = activeProfile_.inputMode == InputMode::Keyboard
                              ? backend_->keyTap(activeProfile_)
                              : backend_->click(activeProfile_);
@@ -148,10 +157,13 @@ void ClickController::performClick() {
 
   ++clicksExecuted_;
   emit clicksExecutedChanged(clicksExecuted_);
+  // 进度订阅者可能已请求停止，不能再将这次停止改写为正常完成。
+  if (!running_ || generation != runGeneration_) return;
 
   if (activeProfile_.repeatMode == RepeatMode::Finite) {
     remainingClicks_ = std::max(0, remainingClicks_ - 1);
     emit remainingClicksChanged(remainingClicks_);
+    if (!running_ || generation != runGeneration_) return;
     if (remainingClicks_ == 0) {
       finishRun(State::Completed, "已完成");
     }
@@ -163,6 +175,7 @@ void ClickController::finishRun(State state, const QString& status) {
   countdownTimer_.stop();
   const bool wasRunning = running_;
   running_ = false;
+  ++runGeneration_;
   if (ownsAutomation_ && coordinator_) {
     coordinator_->release(AutomationActivity::Clicking);
     ownsAutomation_ = false;

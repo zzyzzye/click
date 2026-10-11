@@ -47,6 +47,8 @@ class MacroWorkflowController final : public QObject {
   void toggleRecording();
   void togglePlayback();
   void emergencyStop();
+  bool resolveUnsavedDraft();
+  bool hasDraft() const { return draft_.has_value(); }
 
  signals:
   void stateChanged(MacroControllerState state);
@@ -56,6 +58,7 @@ class MacroWorkflowController final : public QObject {
   void startPlayback(const QString& macroId,
                      const MacroPlaybackSettings& settings);
   void handleRecordingCompleted(const MacroSequence& sequence);
+  bool saveDraft();
   void deleteMacro(const QString& macroId);
   void renameMacro(const QString& macroId);
   void selectWindowAt(const QPoint& globalPoint);
@@ -78,5 +81,6 @@ class MacroWorkflowController final : public QObject {
   OwnWindowIdProvider ownWindowIdProvider_;
   QWidget* dialogParent_ = nullptr;
   QVector<MacroSequence> macros_;
+  std::optional<MacroSequence> draft_;
   bool supported_ = false;
 };

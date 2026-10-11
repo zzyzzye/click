@@ -4,6 +4,7 @@
 
 #include <QAbstractSpinBox>
 #include <QComboBox>
+#include <QCloseEvent>
 #include <QDateTime>
 #include <QEvent>
 #include <QHBoxLayout>
@@ -80,9 +81,10 @@ class IgnoreWheelChangeFilter final : public QObject {
 
 bool defaultMacroSafetyConfirmation(QWidget* parent) {
   return QMessageBox::question(
-             parent, "开始键鼠录制",
+             parent, "开始键鼠自动化",
              "录制文件会保存按键和操作时间，可能反映敏感输入。\n\n"
-             "请不要在录制过程中输入密码、验证码或其他机密信息。是否继续？",
+             "请不要在录制过程中输入密码、验证码或其他机密信息。\n"
+             "试运行和回放会操作真实桌面，可随时使用紧急停止热键中断。是否继续？",
              QMessageBox::Yes | QMessageBox::No, QMessageBox::No) ==
          QMessageBox::Yes;
 }
@@ -93,7 +95,7 @@ QString defaultMacroName(QWidget* parent) {
       QString("录制 %1")
           .arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH-mm-ss"));
   const QString name =
-      QInputDialog::getText(parent, "保存录制", "宏名称", QLineEdit::Normal,
+      QInputDialog::getText(parent, "保存录制", "录制名称", QLineEdit::Normal,
                             suggested, &accepted)
           .trimmed();
   return accepted ? name : QString();
@@ -251,6 +253,11 @@ void MainWindow::buildUi() {
   actionBar_ = new ActionBar(content);
   layout->addWidget(statusStrip_);
   layout->addWidget(pages_, 1);
+  macroActionPanel_ = macroPage_->actionPanel();
+  macroPage_->layout()->removeWidget(macroActionPanel_);
+  macroActionPanel_->setParent(content);
+  layout->addWidget(macroActionPanel_);
+  macroActionPanel_->hide();
   layout->addWidget(actionBar_);
   shell->addWidget(content, 1);
   outer->addWidget(shellContainer, 1);
@@ -275,6 +282,19 @@ void MainWindow::installInputFilters() {
   }
 }
 
+void MainWindow::closeEvent(QCloseEvent* event) {
+  // 先结束输入操作；关闭被取消时也不自动恢复真实桌面输入。
+  if (macroController_->state() == MacroControllerState::Recording) {
+    macroController_->toggleRecording();
+  }
+  automationCoordinator_.requestEmergencyStop();
+  if (!macroController_->resolveUnsavedDraft()) {
+    event->ignore();
+    return;
+  }
+  QMainWindow::closeEvent(event);
+}
+
 void MainWindow::connectControllers() {
   connect(sidebar_, &NavigationSidebar::pageSelected, this,
           [this](ShellPage page) {
@@ -282,6 +302,7 @@ void MainWindow::connectControllers() {
             pageTransition_->stop();
             pages_->setCurrentIndex(static_cast<int>(page));
             actionBar_->setVisible(page != ShellPage::MacroRecording);
+            macroActionPanel_->setVisible(page == ShellPage::MacroRecording);
             if (!reducedMotion_ && style()->styleHint(QStyle::SH_Widget_Animate)) {
               pageOpacity_->setEnabled(true);
               pageTransition_->setStartValue(0.15);

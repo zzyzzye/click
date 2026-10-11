@@ -47,6 +47,10 @@ MacroRecordingPage::MacroRecordingPage(QWidget* parent) : QWidget(parent) {
   root->setContentsMargins(0, 0, 0, 0);
   root->setSpacing(12);
   root->setSizeConstraint(QLayout::SetMinimumSize);
+  auto* guide = new QLabel("开始录制 → 完成操作 → 停止录制 → 试运行一次 → 保存录制", this);
+  guide->setWordWrap(true);
+  guide->setObjectName("macroWorkflowGuide");
+  root->addWidget(guide);
 
   QVBoxLayout* hotkeyContent = nullptr;
   auto* hotkeyCard = card(this, "控制热键", &hotkeyContent);
@@ -73,6 +77,7 @@ MacroRecordingPage::MacroRecordingPage(QWidget* parent) : QWidget(parent) {
   QVBoxLayout* targetContent = nullptr;
   auto* targetCard = card(this, "录制目标", &targetContent);
   auto* targetForm = new QFormLayout;
+  targetForm_ = targetForm;
   targetForm->setContentsMargins(0, 0, 0, 0);
   targetMode_ = new QComboBox(targetCard);
   targetMode_->setObjectName("macroTargetModeCombo");
@@ -110,9 +115,18 @@ MacroRecordingPage::MacroRecordingPage(QWidget* parent) : QWidget(parent) {
   libraryRow->addWidget(rename_);
   libraryRow->addWidget(delete_);
   libraryContent->addLayout(libraryRow);
+  trial_ = new QPushButton("试运行一次", libraryCard);
+  trial_->setObjectName("macroTrialButton");
+  trial_->setToolTip("按当前速度执行一轮，将操作真实桌面；可用停止按钮或紧急停止热键中断。");
+  saveDraft_ = new QPushButton("保存录制", libraryCard);
+  saveDraft_->setObjectName("macroSaveDraftButton");
   macroDetails_ = new QLabel("尚未保存录制", libraryCard);
   macroDetails_->setObjectName("macroDetailsLabel");
+  macroDetails_->setWordWrap(true);
   libraryContent->addWidget(macroDetails_);
+  auto* trialHint = new QLabel("试运行只执行一轮，会操作真实桌面；录制草稿需点击“保存录制”才会写入本机。", libraryCard);
+  trialHint->setWordWrap(true);
+  libraryContent->addWidget(trialHint);
   root->addWidget(libraryCard);
 
   QVBoxLayout* playbackContent = nullptr;
@@ -144,9 +158,11 @@ MacroRecordingPage::MacroRecordingPage(QWidget* parent) : QWidget(parent) {
   root->addWidget(playbackCard);
 
   auto* actionCard = new QFrame(this);
+  actionPanel_ = actionCard;
   actionCard->setObjectName("settingsCard");
-  auto* actions = new QHBoxLayout(actionCard);
-  actions->setContentsMargins(18, 14, 18, 14);
+  auto* actionLayout = new QVBoxLayout(actionCard);
+  actionLayout->setContentsMargins(18, 14, 18, 14);
+  auto* actions = new QHBoxLayout;
   errorLabel_ = new QLabel(actionCard);
   errorLabel_->setObjectName("macroErrorLabel");
   errorLabel_->setWordWrap(true);
@@ -154,9 +170,13 @@ MacroRecordingPage::MacroRecordingPage(QWidget* parent) : QWidget(parent) {
   record_->setObjectName("macroRecordButton");
   play_ = new QPushButton("开始回放", actionCard);
   play_->setObjectName("macroPlayButton");
-  actions->addWidget(errorLabel_, 1);
+  actionLayout->addWidget(errorLabel_);
+  actionLayout->addLayout(actions);
+  actions->addStretch();
   actions->addWidget(record_);
   actions->addWidget(play_);
+  actions->addWidget(trial_);
+  actions->addWidget(saveDraft_);
   root->addWidget(actionCard);
   root->addStretch();
 
@@ -190,6 +210,11 @@ MacroRecordingPage::MacroRecordingPage(QWidget* parent) : QWidget(parent) {
   connect(delete_, &QPushButton::clicked, this, [this] {
     if (!selectedMacroId().isEmpty()) emit deleteRequested(selectedMacroId());
   });
+  connect(saveDraft_, &QPushButton::clicked, this,
+          &MacroRecordingPage::saveDraftRequested);
+  connect(trial_, &QPushButton::clicked, this, [this] {
+    emit trialRequested(selectedMacroId());
+  });
   connect(record_, &QPushButton::clicked, this, [this] {
     if (activity_ == MacroPageActivity::Recording) emit stopRequested();
     else if (activity_ == MacroPageActivity::Idle) emit recordRequested(recordingOptions());
@@ -214,10 +239,11 @@ void MacroRecordingPage::setHotkeys(const HotkeyBindings& hotkeys,
   recordHotkeyLabel_->setText(QString("录制  %1").arg(hotkeys.macroRecord));
   playbackHotkeyLabel_->setText(QString("回放  %1").arg(hotkeys.macroPlayback));
   emergencyHotkeyLabel_->setText(QString("紧急停止  %1").arg(hotkeys.emergencyStop));
+  hotkeyStatusLabel_->setWordWrap(true);
   hotkeyStatusLabel_->setText(registered ? "全局热键已就绪"
-                                         : "全局热键未就绪，请前往“热键”页面检查冲突");
+                                         : "全局热键尚未启用，可使用页面按钮；需要快捷键时请前往“热键”页面启用。");
   hotkeyStatusLabel_->setStyleSheet(registered ? "color: #247a4d;"
-                                               : "color: #b42318;");
+                                               : "");
 }
 
 void MacroRecordingPage::setAvailableWindows(
@@ -255,8 +281,11 @@ void MacroRecordingPage::setActivity(MacroPageActivity activity) {
   refreshWindows_->setEnabled(window_->isEnabled());
   windowPicker_->setEnabled(window_->isEnabled());
   macros_->setEnabled(idle);
-  rename_->setEnabled(idle && hasMacro);
-  delete_->setEnabled(idle && hasMacro);
+  const bool draftSelected = hasMacro && selectedMacroId() == draftId_;
+  rename_->setEnabled(idle && hasMacro && !draftSelected);
+  delete_->setEnabled(idle && hasMacro && !draftSelected);
+  saveDraft_->setEnabled(idle && draftSelected);
+  trial_->setEnabled(idle && hasMacro);
   speed_->setEnabled(idle);
   repeatMode_->setEnabled(idle);
   repeatCount_->setEnabled(idle && !repeatMode_->currentData().toBool());
@@ -265,7 +294,7 @@ void MacroRecordingPage::setActivity(MacroPageActivity activity) {
   record_->setEnabled(supported_ &&
                       (idle || activity == MacroPageActivity::Recording));
   play_->setEnabled(supported_ &&
-                    ((idle && hasMacro) || activity == MacroPageActivity::Playing));
+                    ((idle && hasMacro && !draftSelected) || activity == MacroPageActivity::Playing));
   record_->setText(activity == MacroPageActivity::Recording ? "停止录制" : "开始录制");
   play_->setText(activity == MacroPageActivity::Playing ? "停止回放" : "开始回放");
 }
@@ -290,6 +319,11 @@ void MacroRecordingPage::setPlaybackProgress(int eventIndex, int eventCount) {
 
 void MacroRecordingPage::setError(const QString& message) {
   errorLabel_->setText(message);
+}
+
+void MacroRecordingPage::setDraftId(const QString& id) {
+  draftId_ = id;
+  updateMacroDetails();
 }
 
 QString MacroRecordingPage::selectedMacroId() const {
@@ -321,6 +355,9 @@ void MacroRecordingPage::updateTargetControls() {
   const bool windowMode = targetMode_->currentData().toInt() ==
                           static_cast<int>(MacroTargetMode::Window);
   const bool enabled = supported_ && activity_ == MacroPageActivity::Idle && windowMode;
+  auto* windowRow = window_->parentWidget();
+  windowRow->setVisible(windowMode);
+  if (auto* label = targetForm_->labelForField(windowRow)) label->setVisible(windowMode);
   window_->setEnabled(enabled);
   refreshWindows_->setEnabled(enabled);
   windowPicker_->setEnabled(enabled);
@@ -334,18 +371,17 @@ void MacroRecordingPage::updateRepeatControls() {
 void MacroRecordingPage::updateMacroDetails() {
   const auto sequence = macros_->currentData(Qt::UserRole + 1).value<MacroSequence>();
   if (sequence.id.isEmpty()) {
-    macroDetails_->setText("尚未保存录制");
+    macroDetails_->setText("还没有录制。点击“开始录制”，完成操作后停止，即可试运行。录制时请勿输入敏感信息。");
   } else {
     const QString target = sequence.targetMode == MacroTargetMode::Window
                                ? QString("窗口：%1").arg(sequence.target.title)
                                : "整个系统";
-    macroDetails_->setText(QString("%1 · %2 个事件 · %3")
+    macroDetails_->setText(QString("%1%2 · %3 个事件 · %4")
+                               .arg(sequence.id == draftId_ ? "未保存草稿（仅本次会话） · " : "已保存到本机 · ")
                                .arg(durationText(sequence.durationUs))
                                .arg(sequence.events.size())
                                .arg(target));
   }
-  const bool idle = activity_ == MacroPageActivity::Idle && supported_;
-  rename_->setEnabled(idle && !sequence.id.isEmpty());
-  delete_->setEnabled(idle && !sequence.id.isEmpty());
-  play_->setEnabled(idle && !sequence.id.isEmpty());
+  macroDetails_->setWordWrap(true);
+  setActivity(activity_);
 }

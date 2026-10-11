@@ -105,17 +105,22 @@ bool MacroController::startPlayback(const MacroSequence& sequence,
     return false;
   }
   if (!player_->prepare(sequence, error)) {
+    player_->cancel();
     coordinator_->release(AutomationActivity::Playing);
     return false;
   }
 
   sequence_ = sequence;
+  ++playbackGeneration_;
   eventIndex_ = 0;
   completedRounds_ = 0;
   roundStartUs_ = 0;
   playbackClock_.start();
+  const auto generation = playbackGeneration_;
   setState(MacroControllerState::Playing);
+  if (state_ != MacroControllerState::Playing || generation != playbackGeneration_) return true;
   emit statusChanged("宏回放中");
+  if (state_ != MacroControllerState::Playing || generation != playbackGeneration_) return true;
   dispatchDueEvents();
   return true;
 }
@@ -175,8 +180,13 @@ void MacroController::handleRecordingFailure(const QString& reason) {
 
 void MacroController::dispatchDueEvents() {
   if (state_ != MacroControllerState::Playing) return;
+  // 限制每批补发数量，让停止热键和界面事件有机会得到处理。
+  constexpr int maxEventsPerDispatch = 64;
+  int dispatched = 0;
+  const auto generation = playbackGeneration_;
   qint64 nowUs = playbackElapsedUs();
-  while (eventIndex_ < sequence_.events.size()) {
+  while (eventIndex_ < sequence_.events.size() &&
+         dispatched < maxEventsPerDispatch) {
     const auto& event = sequence_.events[eventIndex_];
     const qint64 deadlineUs =
         roundStartUs_ + scaledOffsetUs(event.offsetUs, sequence_.playback.speed);
@@ -187,7 +197,11 @@ void MacroController::dispatchDueEvents() {
       return;
     }
     ++eventIndex_;
+    ++dispatched;
     emit playbackProgress(static_cast<int>(eventIndex_), sequence_.events.size());
+    // 同步信号订阅者可能请求停止，不能继续注入或标记完成。
+    if (state_ != MacroControllerState::Playing ||
+        generation != playbackGeneration_) return;
     nowUs = playbackElapsedUs();
   }
 
@@ -226,6 +240,7 @@ void MacroController::abortRecording(const QString& reason, bool reportFailure) 
 void MacroController::finishPlayback(const QString& status, bool completed,
                                      const QString& failure) {
   if (state_ != MacroControllerState::Playing) return;
+  ++playbackGeneration_;
   playbackTimer_.stop();
   if (player_) player_->cancel();
   if (coordinator_) coordinator_->release(AutomationActivity::Playing);
@@ -250,5 +265,6 @@ void MacroController::scheduleNextPlaybackEvent() {
   const qint64 remainingUs = std::max<qint64>(0, deadlineUs - playbackElapsedUs());
   const int delayMs = static_cast<int>(std::min<qint64>(
       std::numeric_limits<int>::max(), (remainingUs + 999) / 1000));
-  playbackTimer_.start(delayMs);
+  // 积压事件分批补发时至少让出一个计时周期，避免零间隔循环占满事件队列。
+  playbackTimer_.start(std::max(1, delayMs));
 }

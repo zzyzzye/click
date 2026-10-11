@@ -1,6 +1,11 @@
 #include <QCheckBox>
+#include <QApplication>
+#include <QFile>
+#include <QDir>
 #include <QComboBox>
 #include <QMainWindow>
+#include <QLabel>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QSpinBox>
@@ -114,13 +119,18 @@ class ControllerFakeMacroPlayer final : public MacroPlayer {
     prepared = sequence;
     return true;
   }
-  bool inject(const MacroEvent& event, QString*) override {
+  bool inject(const MacroEvent& event, QString* error) override {
+    if (failInjection) {
+      if (error) *error = "测试输入失败";
+      return false;
+    }
     injected.append(event);
     return true;
   }
   void releaseAll() override {}
   void cancel() override {}
   MacroSequence prepared;
+  bool failInjection = false;
   QVector<MacroEvent> injected;
 };
 
@@ -238,13 +248,16 @@ void AppControllerTests::macroControllerRecordsAndPersistsSequence() {
   auto recorder = std::make_unique<ControllerFakeMacroRecorder>();
   auto* observedRecorder = recorder.get();
   services.recorder = std::move(recorder);
-  services.player = std::make_unique<ControllerFakeMacroPlayer>();
+  auto player = std::make_unique<ControllerFakeMacroPlayer>();
+  auto* observedPlayer = player.get();
+  services.player = std::move(player);
+  int nameRequests = 0;
 
   MacroWorkflowController controller(
       std::move(services), std::make_unique<MacroRepository>(directory.path()),
       &automation, &macroPage, &statusStrip,
       [&profile] { return profile; }, [](QWidget*) { return true; },
-      [](QWidget*) { return QString("控制器录制"); }, [] { return true; },
+      [&nameRequests](QWidget*) { return ++nameRequests == 1 ? QString() : QString("控制器录制"); }, [] { return true; },
       [] {}, [] { return quintptr{999}; }, &macroPage);
   controller.initialize();
   controller.toggleRecording();
@@ -261,10 +274,72 @@ void AppControllerTests::macroControllerRecordsAndPersistsSequence() {
   observedRecorder->capture(up);
   controller.toggleRecording();
 
+  QVERIFY(controller.hasDraft());
+  QVERIFY(MacroRepository(directory.path()).loadAll().isEmpty());
+  auto* save = macroPage.findChild<QPushButton*>("macroSaveDraftButton");
+  QVERIFY(save);
+  save->click();
+  QVERIFY(controller.hasDraft());
+  QVERIFY(MacroRepository(directory.path()).loadAll().isEmpty());
+  // 用普通文件占用保存目录，验证失败不会丢掉草稿，恢复目录后可重试。
+  QVERIFY(QDir().rmdir(directory.path()));
+  QFile blocker(directory.path());
+  QVERIFY(blocker.open(QIODevice::WriteOnly));
+  blocker.close();
+  save->click();
+  QVERIFY(controller.hasDraft());
+  QVERIFY(blocker.remove());
+  QVERIFY(QDir().mkpath(directory.path()));
+  auto* trial = macroPage.findChild<QPushButton*>("macroTrialButton");
+  QVERIFY(trial);
+  auto* repeat = macroPage.findChild<QComboBox*>("macroRepeatModeCombo");
+  repeat->setCurrentIndex(repeat->findData(true));
+  trial->click();
+  QTRY_COMPARE(controller.state(), MacroControllerState::Idle);
+  QCOMPARE(observedPlayer->injected.size(), 2);
+  QVERIFY(!observedPlayer->prepared.playback.infinite);
+  QCOMPARE(observedPlayer->prepared.playback.repeatCount, 1);
+  QVERIFY(controller.hasDraft());
+  QVERIFY(MacroRepository(directory.path()).loadAll().isEmpty());
+  // 取消替换草稿时，原录制内容仍可继续保存。
+  QTimer::singleShot(0, [] {
+    auto* prompt = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+    if (prompt) prompt->done(QMessageBox::Cancel);
+  });
+  controller.toggleRecording();
+  QVERIFY(!observedRecorder->running);
+  QVERIFY(controller.hasDraft());
+  QTimer::singleShot(0, [] {
+    auto* prompt = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+    if (prompt) prompt->done(QMessageBox::Save);
+  });
+  QVERIFY(controller.resolveUnsavedDraft());
+  QVERIFY(!controller.hasDraft());
   const QVector<MacroSequence> saved =
       MacroRepository(directory.path()).loadAll();
   QCOMPARE(saved.size(), 1);
   QCOMPARE(saved.first().name, QString("控制器录制"));
+  const auto originalFile = MacroTypes::toJson(saved.first());
+  trial->click();
+  QTRY_COMPARE(controller.state(), MacroControllerState::Idle);
+  QCOMPARE(MacroTypes::toJson(MacroRepository(directory.path()).loadAll().first()), originalFile);
+  observedPlayer->failInjection = true;
+  trial->click();
+  QTRY_COMPARE(controller.state(), MacroControllerState::Idle);
+  QCOMPARE(macroPage.findChild<QLabel*>("macroErrorLabel")->text(), QString("测试输入失败"));
+  observedPlayer->failInjection = false;
+  controller.toggleRecording();
+  observedRecorder->capture(down);
+  observedRecorder->capture(up);
+  controller.toggleRecording();
+  QVERIFY(controller.hasDraft());
+  QTimer::singleShot(0, [] {
+    auto* prompt = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+    if (prompt) prompt->done(QMessageBox::Discard);
+  });
+  QVERIFY(controller.resolveUnsavedDraft());
+  QVERIFY(!controller.hasDraft());
+  QCOMPARE(MacroRepository(directory.path()).loadAll().size(), 1);
 }
 
 void AppControllerTests::workflowUiControllerAppliesMutualExclusion() {
