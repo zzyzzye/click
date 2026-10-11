@@ -24,6 +24,8 @@ class HotkeySettingsPage;
 class MacroRecordingPage;
 class MacroRepository;
 class MacroWorkflowController;
+class FlowWorkflowController;
+class FlowEditorPage;
 class NavigationSidebar;
 class PresetsAboutPage;
 class ProfileController;
@@ -78,6 +80,7 @@ class MainWindow : public QMainWindow {
   std::unique_ptr<HotkeyController> hotkeyController_;
   std::unique_ptr<ClickWorkflowController> clickController_;
   std::unique_ptr<MacroWorkflowController> macroController_;
+  std::unique_ptr<FlowWorkflowController> flowController_;
   std::unique_ptr<WorkflowUiStateController> workflowUiController_;
   std::unique_ptr<UpdateController> updateController_;
 
@@ -88,10 +91,13 @@ class MainWindow : public QMainWindow {
   QGraphicsOpacityEffect* pageOpacity_ = nullptr;
   QPropertyAnimation* pageTransition_ = nullptr;
   bool reducedMotion_ = false;
+  bool updateRestartApproved_ = false;
   ClickSettingsPage* clickPage_ = nullptr;
   HotkeySettingsPage* hotkeyPage_ = nullptr;
   MacroRecordingPage* macroPage_ = nullptr;
   PresetsAboutPage* presetsPage_ = nullptr;
   ActionBar* actionBar_ = nullptr;
   QWidget* macroActionPanel_ = nullptr;
+  FlowEditorPage* flowPage_ = nullptr;
+  QWidget* flowActionPanel_ = nullptr;
 };

@@ -39,6 +39,8 @@ HotkeyController::HotkeyController(std::unique_ptr<HotkeyService> service,
           &HotkeyController::macroRecordToggleRequested);
   connect(service_.get(), &HotkeyService::macroPlaybackPressed, this,
           &HotkeyController::macroPlaybackToggleRequested);
+  connect(service_.get(), &HotkeyService::flowPausePressed, this,
+          &HotkeyController::flowPauseRequested);
 }
 
 HotkeyController::~HotkeyController() = default;

@@ -9,11 +9,7 @@
 #include "core/MacroRecorder.h"
 #include "core/MacroTypes.h"
 
-enum class MacroControllerState {
-  Idle,
-  Recording,
-  Playing
-};
+enum class MacroControllerState { Idle, Recording, Playing, Paused };
 Q_DECLARE_METATYPE(MacroControllerState)
 
 class MacroController final : public QObject {
@@ -30,6 +26,11 @@ class MacroController final : public QObject {
   bool startPlayback(const MacroSequence& sequence, QString* error = nullptr);
   void stop();
   void emergencyStop();
+  void pause();
+  bool resume(QString* error = nullptr);
+  bool isPaused() const {
+    return state_ == MacroControllerState::Paused;
+  }
 
   MacroControllerState state() const;
   bool isRecording() const;
@@ -44,6 +45,7 @@ class MacroController final : public QObject {
   void recordingCompleted(const MacroSequence& sequence);
   void playbackProgress(int eventIndex, int eventCount);
   void playbackFinished();
+  void stepProgress(int stepIndex, int round, int completedRounds);
   void statusChanged(const QString& status);
   void failed(const QString& reason);
 
@@ -72,4 +74,10 @@ class MacroController final : public QObject {
   int completedRounds_ = 0;
   qint64 roundStartUs_ = 0;
   quint64 playbackGeneration_ = 0;
+  bool pauseRequested_ = false;
+  bool safeBoundary_ = true;
+  qint64 pausedAtUs_ = 0;
+  qint64 excludedUs_ = 0;
+  int lastStep_ = -1;
+  qint64 relativeDeadlineUs_ = 0;
 };

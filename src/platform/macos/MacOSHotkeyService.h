@@ -18,24 +18,24 @@ class MacOSHotkeyService : public HotkeyService {
   QString backendName() const override;
 
  private:
-  enum class Action {
-    StartStop = 1,
-    CapturePoint = 2,
-    EmergencyStop = 3,
-    MacroRecord = 4,
-    MacroPlayback = 5
-  };
+   enum class Action {
+     StartStop = 1,
+     CapturePoint = 2,
+     EmergencyStop = 3,
+     MacroRecord = 4,
+     MacroPlayback = 5,
+     FlowPause = 6
+   };
 
-  static OSStatus handleEvent(EventHandlerCallRef nextHandler, EventRef event,
-                              void* userData);
-  bool registerOne(const QString& sequenceText, Action action);
-  void dispatchHotkey(int actionId);
-  bool parseSequence(const QString& sequenceText, UInt32* modifiers, UInt32* keyCode) const;
-  UInt32 carbonModifiers(Qt::KeyboardModifiers modifiers) const;
-  bool keyCodeForQtKey(Qt::Key key, UInt32* keyCode) const;
+   static OSStatus handleEvent(EventHandlerCallRef nextHandler, EventRef event, void* userData);
+   bool registerOne(const QString& sequenceText, Action action);
+   void dispatchHotkey(int actionId);
+   bool parseSequence(const QString& sequenceText, UInt32* modifiers, UInt32* keyCode) const;
+   UInt32 carbonModifiers(Qt::KeyboardModifiers modifiers) const;
+   bool keyCodeForQtKey(Qt::Key key, UInt32* keyCode) const;
 
-  EventHandlerRef handlerRef_ = nullptr;
-  QList<EventHotKeyRef> hotkeyRefs_;
-  QHash<int, Action> registeredActions_;
+   EventHandlerRef handlerRef_ = nullptr;
+   QList<EventHotKeyRef> hotkeyRefs_;
+   QHash<int, Action> registeredActions_;
 };
 

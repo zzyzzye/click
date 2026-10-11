@@ -36,12 +36,18 @@ void WorkflowUiStateController::setMacroState(MacroControllerState state) {
 }
 
 void WorkflowUiStateController::apply() {
-  const bool macroIdle = macroState_ == MacroControllerState::Idle;
+  const bool macroIdle = macroState_ == MacroControllerState::Idle && !flowRunning_;
   const bool editingEnabled = !clickRunning_ && macroIdle;
   clickPage_->setEditingEnabled(editingEnabled);
   hotkeyPage_->setEditingEnabled(editingEnabled);
   presetsPage_->setMutationEnabled(editingEnabled);
   actionBar_->setEnabled(macroIdle);
+  if (flowRunning_) {
+    macroPage_->setActivity(MacroPageActivity::Unavailable);
+    macroPage_->setError("步骤流程运行中，请前往“编排步骤”暂停或停止。");
+    clickBlocked_ = true;
+    return;
+  }
 
   if (!macroSupported_) {
     macroPage_->setActivity(MacroPageActivity::Unavailable);

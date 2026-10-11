@@ -16,7 +16,11 @@ enum class MacroEventType {
   MouseButtonDown,
   MouseButtonUp,
   Wheel,
-  HorizontalWheel
+  HorizontalWheel,
+  ActionClick,
+  ActionKey,
+  ActionText,
+  Boundary
 };
 
 enum class MacroMouseButton {
@@ -34,6 +38,7 @@ enum class MacroTargetMode {
 };
 
 struct WindowTarget {
+  bool operator==(const WindowTarget&) const = default;
   quintptr nativeId = 0;
   QString executablePath;
   QString className;
@@ -42,6 +47,7 @@ struct WindowTarget {
 };
 
 struct MacroEvent {
+  bool operator==(const MacroEvent&) const = default;
   MacroEventType type = MacroEventType::MouseMove;
   qint64 offsetUs = 0;
   quint32 virtualKey = 0;
@@ -50,9 +56,16 @@ struct MacroEvent {
   QPoint point;
   MacroMouseButton button = MacroMouseButton::None;
   int wheelDelta = 0;
+  QString text;
+  int stepIndex = -1;
+  bool pauseBoundary = false;
+  bool relativeDelay = false;
+  qint64 delayUs = 0;
+  bool timelineAnchor = false;
 };
 
 struct MacroPlaybackSettings {
+  bool operator==(const MacroPlaybackSettings&) const = default;
   double speed = 1.0;
   bool infinite = false;
   int repeatCount = 1;
@@ -60,6 +73,7 @@ struct MacroPlaybackSettings {
 };
 
 struct MacroSequence {
+  bool operator==(const MacroSequence&) const = default;
   QString id;
   QString name;
   QDateTime createdAt;

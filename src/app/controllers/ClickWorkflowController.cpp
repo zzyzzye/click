@@ -50,10 +50,10 @@ ClickWorkflowController::ClickWorkflowController(
           &ClickWorkflowController::handleRemainingClicksChanged);
   connect(&controller_, &ClickController::clicksExecutedChanged, this,
           &ClickWorkflowController::handleClicksExecutedChanged);
-  connect(&controller_, &ClickController::startRejected, this,
-          [this](const QString& reason) {
-            QMessageBox::warning(dialogParent_, "无法启动", reason);
-          });
+  connect(&controller_, &ClickController::startRejected, this, [this](const QString& reason) {
+    // 运行互斥错误使用持续可见的状态提示，避免模态窗口遮住停止入口。
+    statusStrip_->setStatus(QString("无法启动：%1").arg(reason));
+  });
 
   updatePermissionBanner();
 }

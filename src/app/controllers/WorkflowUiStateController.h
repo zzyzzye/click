@@ -25,6 +25,10 @@ class WorkflowUiStateController final : public QObject {
  public slots:
   void setClickRunning(bool running);
   void setMacroState(MacroControllerState state);
+  void setFlowRunning(bool running) {
+    flowRunning_ = running;
+    apply();
+  }
 
  private:
   void apply();
@@ -37,5 +41,6 @@ class WorkflowUiStateController final : public QObject {
   bool macroSupported_ = false;
   bool clickRunning_ = false;
   bool clickBlocked_ = false;
+  bool flowRunning_ = false;
   MacroControllerState macroState_ = MacroControllerState::Idle;
 };

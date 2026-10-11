@@ -63,6 +63,12 @@ QString clickFlowStyleSheet(bool translucent) {
     #statusStrip { border: none; background: transparent; }
     #actionBar { border-color: rgba(0,103,192,0.18); background: #F0F6FD; }
     #cardTitle { font-size: 15px; font-weight: 600; padding-bottom: 4px; }
+    #updateDetail { color: %5; font-size: 12px; }
+    QProgressBar {
+      border: 1px solid rgba(21,36,59,0.12); border-radius: 6px;
+      background: #F5F7FB; text-align: center;
+    }
+    QProgressBar::chunk { background: %10; border-radius: 5px; }
     QPushButton {
       min-height: 32px; max-height: 32px;
       background: %6; color: %4;
@@ -78,6 +84,7 @@ QString clickFlowStyleSheet(bool translucent) {
       color: %9; background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.04);
     }
     QPushButton#startStopButton,
+    QPushButton[primary="true"],
     QPushButton#macroRecordButton,
     QPushButton#macroPlayButton {
       min-height: 36px; max-height: 36px;
@@ -88,15 +95,19 @@ QString clickFlowStyleSheet(bool translucent) {
       padding: 0 16px; font-weight: 600;
     }
     QPushButton#startStopButton,
+    QPushButton[primary="true"],
     QPushButton#macroRecordButton,
     QPushButton#macroPlayButton { background: %10; }
     QPushButton#startStopButton:hover,
+    QPushButton[primary="true"]:hover,
     QPushButton#macroRecordButton:hover,
     QPushButton#macroPlayButton:hover { background: %11; }
     QPushButton#startStopButton:pressed,
+    QPushButton[primary="true"]:pressed,
     QPushButton#macroRecordButton:pressed,
     QPushButton#macroPlayButton:pressed { background: %12; }
     QPushButton#startStopButton:disabled,
+    QPushButton[primary="true"]:disabled,
     QPushButton#macroRecordButton:disabled,
     QPushButton#macroPlayButton:disabled {
       color: %9; background: rgba(0,0,0,0.04);
@@ -187,6 +198,13 @@ QString clickFlowStyleSheet(bool translucent) {
       background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.20);
     }
     QListWidget { outline: none; }
+    QLabel[error="true"] { color: %13; }
+    QPlainTextEdit, #flowSteps {
+      border: 1px solid rgba(21,36,59,0.16); border-radius: 8px;
+      background: #F8FAFD; padding: 6px;
+      selection-color: white; selection-background-color: %10;
+    }
+    QPlainTextEdit:focus { border: 1px solid %10; background: white; }
     #presetList { border: 1px solid rgba(21,36,59,0.12); border-radius: 8px; background: #F8FAFD; padding: 4px; }
     #presetEmptyHint { color: %5; padding: 16px 0; }
     QListWidget:focus { border: 1px solid %10; }
@@ -234,19 +252,18 @@ QString clickFlowStyleSheet(bool translucent) {
     QMenu::item { padding: 6px 24px 6px 12px; border-radius: 4px; }
     QMenu::item:selected { background: rgba(0,0,0,0.06); }
   )")
-      .arg(QString::fromLatin1(surfaceBackground),
-           QString::fromLatin1(contentBackground),
+      .arg(QString::fromLatin1(surfaceBackground), QString::fromLatin1(contentBackground),
            sidebarBackground,
-           hex(t.textPrimary),                // %4
-           hex(t.textSecondary),              // %5
-           hex(t.controlBackground),          // %6
-           hex(t.controlBackgroundHover),     // %7
-           hex(t.controlBackgroundPressed),   // %8
-           hex(t.textDisabled),               // %9
-           hex(t.accent),                     // %10
-           hex(t.accentHover),                // %11
-           hex(t.accentPressed),              // %12
-           hex(t.danger),                     // %13
-           hex(t.dangerHover),                // %14
-           hex(t.dangerPressed));             // %15
+           hex(t.textPrimary),              // %4
+           hex(t.textSecondary),            // %5
+           hex(t.controlBackground),        // %6
+           hex(t.controlBackgroundHover),   // %7
+           hex(t.controlBackgroundPressed), // %8
+           hex(t.textDisabled),             // %9
+           hex(t.accent),                   // %10
+           hex(t.accentHover),              // %11
+           hex(t.accentPressed),            // %12
+           hex(t.danger),                   // %13
+           hex(t.dangerHover),              // %14
+           hex(t.dangerPressed));           // %15
 }

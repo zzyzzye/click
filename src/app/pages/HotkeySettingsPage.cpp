@@ -29,6 +29,11 @@ HotkeySettingsPage::HotkeySettingsPage(QWidget* parent) : QWidget(parent) {
   layout->addRow("紧急停止", emergency_);
   layout->addRow("宏录制 / 停止", macroRecord_);
   layout->addRow("宏回放 / 停止", macroPlayback_);
+  flowPause_ = new QKeySequenceEdit(card);
+  flowPause_->setObjectName("flowPauseHotkeyEdit");
+  layout->addRow("流程暂停 / 继续", flowPause_);
+  connect(flowPause_, &QKeySequenceEdit::keySequenceChanged, this,
+          [this] { emit hotkeysChanged(); });
   layout->addRow(new QLabel("热键被其他应用占用时，ClickFlow 会拒绝整组注册。", card));
   root->addWidget(card); root->addStretch();
   for (auto* editor : {startStop_, capture_, emergency_, macroRecord_, macroPlayback_}) {
@@ -45,6 +50,9 @@ void HotkeySettingsPage::setProfile(const ClickProfile& p) {
   const QSignalBlocker blockEmergency(emergency_);
   const QSignalBlocker blockRecord(macroRecord_);
   const QSignalBlocker blockPlayback(macroPlayback_);
+  const QSignalBlocker blockPause(flowPause_);
+  flowPause_->setKeySequence(
+      QKeySequence::fromString(p.hotkeys.flowPause, QKeySequence::PortableText));
   startStop_->setKeySequence(QKeySequence::fromString(p.hotkeys.startStop, QKeySequence::PortableText));
   capture_->setKeySequence(QKeySequence::fromString(p.hotkeys.capturePoint, QKeySequence::PortableText));
   emergency_->setKeySequence(QKeySequence::fromString(p.hotkeys.emergencyStop, QKeySequence::PortableText));
@@ -61,13 +69,16 @@ void HotkeySettingsPage::applyToProfile(ClickProfile& p) const {
       macroRecord_->keySequence().toString(QKeySequence::PortableText);
   p.hotkeys.macroPlayback =
       macroPlayback_->keySequence().toString(QKeySequence::PortableText);
+  p.hotkeys.flowPause = flowPause_->keySequence().toString(QKeySequence::PortableText);
 }
 bool HotkeySettingsPage::validate(const ClickProfile& profile, QString* error) const {
-  const struct { QString name; QKeySequence value; } values[] = {
-    {"开始/停止", startStop_->keySequence()}, {"捕获坐标", capture_->keySequence()},
-    {"紧急停止", emergency_->keySequence()},
-    {"宏录制/停止", macroRecord_->keySequence()},
-    {"宏回放/停止", macroPlayback_->keySequence()}};
+  const struct {
+    QString name;
+    QKeySequence value;
+  } values[] = {
+      {"开始/停止", startStop_->keySequence()},       {"捕获坐标", capture_->keySequence()},
+      {"紧急停止", emergency_->keySequence()},        {"宏录制/停止", macroRecord_->keySequence()},
+      {"宏回放/停止", macroPlayback_->keySequence()}, {"流程暂停/继续", flowPause_->keySequence()}};
   QStringList seen;
   for (const auto& value : values) {
     const QString text = value.value.toString(QKeySequence::PortableText);
@@ -90,8 +101,9 @@ bool HotkeySettingsPage::validate(const ClickProfile& profile, QString* error) c
   return true;
 }
 void HotkeySettingsPage::setEditingEnabled(bool enabled) {
+  activation_->setEnabled(enabled);
   for (auto* editor :
-       {startStop_, capture_, emergency_, macroRecord_, macroPlayback_}) {
+       {startStop_, capture_, emergency_, macroRecord_, macroPlayback_, flowPause_}) {
     editor->setEnabled(enabled);
   }
 }

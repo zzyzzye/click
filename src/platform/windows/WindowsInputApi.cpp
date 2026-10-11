@@ -4,6 +4,7 @@
 #include <Windows.h>
 
 #include <array>
+#include <QVector>
 #include <QKeySequence>
 
 namespace {
@@ -34,8 +35,11 @@ class NativeWindowsInputApi final : public WindowsInputApi {
     inputs[1].type = INPUT_MOUSE;
     inputs[1].mi.dwFlags = upFlag;
 
-    return SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT)) ==
-           inputs.size();
+    const bool ok =
+        SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT)) == inputs.size();
+    if (!ok)
+      SendInput(1, &inputs[1], sizeof(INPUT));
+    return ok;
   }
 
   bool keyTap(const QString& keyText) override {
@@ -51,10 +55,59 @@ class NativeWindowsInputApi final : public WindowsInputApi {
     else if (key == Qt::Key_Tab) virtualKey = VK_TAB;
     else if (key == Qt::Key_Escape) virtualKey = VK_ESCAPE;
     if (!virtualKey) return false;
-    std::array<INPUT, 2> inputs{};
-    inputs[0].type = INPUT_KEYBOARD; inputs[0].ki.wVk = virtualKey;
-    inputs[1].type = INPUT_KEYBOARD; inputs[1].ki.wVk = virtualKey; inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
-    return SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT)) == inputs.size();
+    QVector<INPUT> inputs;
+    QVector<WORD> modifiers;
+    const auto mods = sequence[0].keyboardModifiers();
+    if (mods.testFlag(Qt::ControlModifier))
+      modifiers.append(VK_CONTROL);
+    if (mods.testFlag(Qt::AltModifier))
+      modifiers.append(VK_MENU);
+    if (mods.testFlag(Qt::ShiftModifier))
+      modifiers.append(VK_SHIFT);
+    if (mods.testFlag(Qt::MetaModifier))
+      modifiers.append(VK_LWIN);
+    auto append = [&](WORD k, bool up) {
+      INPUT input{};
+      input.type = INPUT_KEYBOARD;
+      input.ki.wVk = k;
+      input.ki.dwFlags = up ? KEYEVENTF_KEYUP : 0;
+      inputs.append(input);
+    };
+    for (WORD m : modifiers)
+      append(m, false);
+    append(virtualKey, false);
+    append(virtualKey, true);
+    for (auto it = modifiers.crbegin(); it != modifiers.crend(); ++it)
+      append(*it, true);
+    const bool ok = SendInput(UINT(inputs.size()), inputs.data(), sizeof(INPUT)) == inputs.size();
+    if (!ok) {
+      // 部分发送也必须尝试释放所有模拟按键。
+      inputs.clear();
+      append(virtualKey, true);
+      for (auto it = modifiers.crbegin(); it != modifiers.crend(); ++it)
+        append(*it, true);
+      SendInput(UINT(inputs.size()), inputs.data(), sizeof(INPUT));
+    }
+    return ok;
+  }
+  bool textInput(const QString& text) override {
+    QVector<INPUT> inputs;
+    for (QChar c : text) {
+      INPUT down{};
+      down.type = INPUT_KEYBOARD;
+      down.ki.wScan = c.unicode();
+      down.ki.dwFlags = KEYEVENTF_UNICODE;
+      inputs.append(down);
+      down.ki.dwFlags |= KEYEVENTF_KEYUP;
+      inputs.append(down);
+    }
+    const bool ok = SendInput(UINT(inputs.size()), inputs.data(), sizeof(INPUT)) == inputs.size();
+    if (!ok) {
+      for (auto& input : inputs)
+        input.ki.dwFlags |= KEYEVENTF_KEYUP;
+      SendInput(UINT(inputs.size()), inputs.data(), sizeof(INPUT));
+    }
+    return ok;
   }
 };
 

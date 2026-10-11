@@ -10,5 +10,6 @@ namespace MacroCompressor {
 QVector<MacroEvent> compress(const QVector<MacroEvent>& events);
 QVector<MacroEvent> removeReservedTail(const QVector<MacroEvent>& events,
                                        const QStringList& reservedHotkeys);
+bool containsReservedKey(const QVector<MacroEvent>& events, const QStringList& reservedHotkeys);
 
 }  // namespace MacroCompressor

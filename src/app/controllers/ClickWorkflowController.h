@@ -32,6 +32,9 @@ class ClickWorkflowController final : public QObject {
   ~ClickWorkflowController() override;
 
   bool isRunning() const { return controller_.isRunning(); }
+  ClickBackend* backend() const {
+    return backend_.get();
+  }
   void toggle();
   void capturePoint();
   void emergencyStop();

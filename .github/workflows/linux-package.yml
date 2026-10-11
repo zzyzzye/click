@@ -23,7 +23,7 @@ jobs:
       - name: 安装构建与打包依赖
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build g++ qt6-base-dev qt6-svg-dev qt6-qpa-plugins libx11-dev libxtst-dev xvfb xauth dpkg-dev file
+          sudo apt-get install -y cmake ninja-build g++ qt6-base-dev qt6-svg-dev qt6-qpa-plugins libx11-dev libxtst-dev libxrandr-dev xvfb xauth dpkg-dev file
       - name: 构建、测试并打包
         run: bash scripts/build-linux-release.sh
       - name: 上传安装包

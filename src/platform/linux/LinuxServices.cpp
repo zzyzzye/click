@@ -13,6 +13,7 @@
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 #include <X11/extensions/XTest.h>
+#include <X11/extensions/Xrandr.h>
 
 namespace {
 // Wayland 下不使用 XWayland 冒充全局输入支持。
@@ -69,8 +70,6 @@ class LinuxClickBackend final : public ClickBackend {
       point += QPoint(random->bounded(-profile.jitterRadius, profile.jitterRadius + 1),
                       random->bounded(-profile.jitterRadius, profile.jitterRadius + 1));
     }
-    point.setX(qBound(0, point.x(), DisplayWidth(display_, DefaultScreen(display_)) - 1));
-    point.setY(qBound(0, point.y(), DisplayHeight(display_, DefaultScreen(display_)) - 1));
     const unsigned int button = profile.button == ClickButton::Left ? 1 : 3;
     const bool moved = XTestFakeMotionEvent(display_, DefaultScreen(display_), point.x(), point.y(), 0);
     const bool down = XTestFakeButtonEvent(display_, button, True, 0);
@@ -99,6 +98,26 @@ class LinuxClickBackend final : public ClickBackend {
     return {x, y};
   }
   bool hasAccessibilityPermission() const override { return available_; }
+  QVector<QRect> screenRects() const override {
+    if (!display_)
+      return {};
+    int major = 1, minor = 5;
+    if (!XRRQueryVersion(display_, &major, &minor) || major < 1 || (major == 1 && minor < 5))
+      return {};
+    int count = 0;
+    auto* monitors = XRRGetMonitors(display_, DefaultRootWindow(display_), True, &count);
+    QVector<QRect> result;
+    for (int i = 0; monitors && i < count; ++i)
+      result.append(QRect(monitors[i].x, monitors[i].y, monitors[i].width, monitors[i].height));
+    if (monitors)
+      XRRFreeMonitors(monitors);
+    return result;
+  }
+  bool supportsKey(const QString& text) const override {
+    auto s = QKeySequence::fromString(text, QKeySequence::PortableText);
+    return available_ && s.count() == 1 && s[0].keyboardModifiers() == Qt::NoModifier &&
+           keySymbol(s[0].key()) != NoSymbol && XKeysymToKeycode(display_, keySymbol(s[0].key()));
+  }
   void requestAccessibilityPermission() override {}
  private:
   Display* display_ = nullptr;
@@ -136,8 +155,9 @@ class LinuxHotkeyService final : public HotkeyService {
       emit registrationFailed("Linux 全局输入需要 X11 会话，请切换到 Xorg 桌面。");
       return false;
     }
-    const std::array<QString, 5> sequences = {profile.hotkeys.startStop, profile.hotkeys.capturePoint,
-        profile.hotkeys.emergencyStop, profile.hotkeys.macroRecord, profile.hotkeys.macroPlayback};
+    const std::array<QString, 6> sequences = {
+        profile.hotkeys.startStop,   profile.hotkeys.capturePoint,  profile.hotkeys.emergencyStop,
+        profile.hotkeys.macroRecord, profile.hotkeys.macroPlayback, profile.hotkeys.flowPause};
     for (int action = 0; action < 5; ++action) {
       auto sequence = QKeySequence::fromString(sequences[action], QKeySequence::PortableText);
       if (sequence.count() != 1) return fail();
@@ -193,7 +213,10 @@ class LinuxHotkeyService final : public HotkeyService {
         case 2: emit emergencyStopPressed(); break;
         case 3: emit macroRecordPressed(); break;
         case 4: emit macroPlaybackPressed(); break;
-      }
+        case 5:
+          emit flowPausePressed();
+          break;
+        }
     }
   }
   struct Binding { KeyCode code; unsigned int mods; int action; };

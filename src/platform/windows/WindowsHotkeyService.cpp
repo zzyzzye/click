@@ -36,6 +36,7 @@ bool WindowsHotkeyService::registerHotkeys(const ClickProfile& profile) {
       {profile.hotkeys.emergencyStop, Action::EmergencyStop},
       {profile.hotkeys.macroRecord, Action::MacroRecord},
       {profile.hotkeys.macroPlayback, Action::MacroPlayback},
+      {profile.hotkeys.flowPause, Action::FlowPause},
   };
 
   for (const auto& binding : bindings) {
@@ -101,20 +102,23 @@ bool WindowsHotkeyService::registerOne(const QString& sequenceText, Action actio
 
 void WindowsHotkeyService::dispatch(Action action) {
   switch (action) {
-    case Action::StartStop:
-      emit startStopPressed();
-      break;
-    case Action::CapturePoint:
-      emit capturePointPressed();
-      break;
-    case Action::EmergencyStop:
-      emit emergencyStopPressed();
-      break;
-    case Action::MacroRecord:
-      emit macroRecordPressed();
-      break;
-    case Action::MacroPlayback:
-      emit macroPlaybackPressed();
-      break;
+  case Action::FlowPause:
+    emit flowPausePressed();
+    break;
+  case Action::StartStop:
+    emit startStopPressed();
+    break;
+  case Action::CapturePoint:
+    emit capturePointPressed();
+    break;
+  case Action::EmergencyStop:
+    emit emergencyStopPressed();
+    break;
+  case Action::MacroRecord:
+    emit macroRecordPressed();
+    break;
+  case Action::MacroPlayback:
+    emit macroPlaybackPressed();
+    break;
   }
 }

@@ -9,5 +9,11 @@ class MacOSClickBackend : public ClickBackend {
   QPoint currentCursorPosition() const override;
   bool hasAccessibilityPermission() const override;
   void requestAccessibilityPermission() override;
+  QVector<QRect> screenRects() const override;
+  bool supportsKey(const QString& key) const override;
+  bool supportsText() const override {
+    return true;
+  }
+  bool textInput(const QString& text) override;
 };
 

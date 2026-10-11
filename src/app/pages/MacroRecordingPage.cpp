@@ -124,6 +124,10 @@ MacroRecordingPage::MacroRecordingPage(QWidget* parent) : QWidget(parent) {
   macroDetails_->setObjectName("macroDetailsLabel");
   macroDetails_->setWordWrap(true);
   libraryContent->addWidget(macroDetails_);
+  auto* editSteps = new QPushButton("在步骤编辑器打开选中录制", libraryCard);
+  editSteps->setObjectName("macroEditSteps");
+  libraryContent->addWidget(editSteps);
+  connect(editSteps, &QPushButton::clicked, this, &MacroRecordingPage::editStepsRequested);
   auto* trialHint = new QLabel("试运行只执行一轮，会操作真实桌面；录制草稿需点击“保存录制”才会写入本机。", libraryCard);
   trialHint->setWordWrap(true);
   libraryContent->addWidget(trialHint);
@@ -346,8 +350,8 @@ MacroRecordingOptions MacroRecordingPage::recordingOptions() const {
   if (options.targetMode == MacroTargetMode::Window && window_->currentIndex() >= 0) {
     options.target = window_->currentData().value<WindowTarget>();
   }
-  options.reservedHotkeys =
-      {hotkeys_.macroRecord, hotkeys_.macroPlayback, hotkeys_.emergencyStop};
+  options.reservedHotkeys = {hotkeys_.macroRecord, hotkeys_.macroPlayback, hotkeys_.emergencyStop,
+                             hotkeys_.flowPause};
   return options;
 }
 

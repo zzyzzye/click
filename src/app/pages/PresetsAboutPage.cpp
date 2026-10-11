@@ -6,13 +6,21 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
+#include <QProgressBar>
 #include <QPixmap>
 #include <QVBoxLayout>
 
 PresetsAboutPage::PresetsAboutPage(QWidget* parent) : QWidget(parent) {
-  auto* root = new QVBoxLayout(this); root->setContentsMargins(0,0,0,0); root->setSpacing(16); root->setSizeConstraint(QLayout::SetMinimumSize);
-  auto* presets = new QFrame(this); presets->setObjectName("settingsCard");
-  auto* p = new QVBoxLayout(presets); auto* title = new QLabel("配置预设", presets); title->setObjectName("cardTitle"); p->addWidget(title);
+  auto* root = new QVBoxLayout(this);
+  root->setContentsMargins(0, 0, 0, 0);
+  root->setSpacing(16);
+  root->setSizeConstraint(QLayout::SetMinimumSize);
+  auto* presets = new QFrame(this);
+  presets->setObjectName("settingsCard");
+  auto* p = new QVBoxLayout(presets);
+  auto* title = new QLabel("配置预设", presets);
+  title->setObjectName("cardTitle");
+  p->addWidget(title);
   emptyHint_ = new QLabel("还没有保存的预设\n点击“新建”，保存一套常用的点击配置。", presets);
   emptyHint_->setObjectName("presetEmptyHint");
   emptyHint_->setWordWrap(true);
@@ -23,12 +31,21 @@ PresetsAboutPage::PresetsAboutPage(QWidget* parent) : QWidget(parent) {
   list_->setMinimumHeight(100);
   p->addWidget(list_, 1);
   auto* tools = new QHBoxLayout();
-  new_ = new QPushButton("新建"); save_ = new QPushButton("保存"); rename_ = new QPushButton("重命名");
-  delete_ = new QPushButton("删除"); load_ = new QPushButton("加载");
-  for (auto* b : {new_, save_, rename_, delete_, load_}) tools->addWidget(b);
-  tools->addStretch(); p->addLayout(tools); root->addWidget(presets);
-  auto* about = new QFrame(this); about->setObjectName("settingsCard"); auto* a = new QVBoxLayout(about);
-  product_ = new QLabel("ClickFlow", about); product_->setObjectName("cardTitle");
+  new_ = new QPushButton("新建");
+  save_ = new QPushButton("保存");
+  rename_ = new QPushButton("重命名");
+  delete_ = new QPushButton("删除");
+  load_ = new QPushButton("加载");
+  for (auto* b : {new_, save_, rename_, delete_, load_})
+    tools->addWidget(b);
+  tools->addStretch();
+  p->addLayout(tools);
+  root->addWidget(presets);
+  auto* about = new QFrame(this);
+  about->setObjectName("settingsCard");
+  auto* a = new QVBoxLayout(about);
+  product_ = new QLabel("ClickFlow", about);
+  product_->setObjectName("cardTitle");
   version_ = new QLabel(QCoreApplication::applicationVersion(), about);
 #if defined(Q_OS_WIN)
   platform_ = new QLabel("Windows", about);
@@ -40,12 +57,32 @@ PresetsAboutPage::PresetsAboutPage(QWidget* parent) : QWidget(parent) {
   platform_ = new QLabel("Unknown", about);
 #endif
   updateStatus_ = new QLabel("更新：尚未检查", about);
+  updateStatus_->setWordWrap(true);
+  updateStatus_->setObjectName("updateStatus");
+  updateStatus_->setMinimumHeight(40);
+  updateDetail_ = new QLabel(about);
+  updateDetail_->setObjectName("updateDetail");
+  updateDetail_->setWordWrap(true);
+  updateDetail_->setMinimumHeight(20);
+  updateProgress_ = new QProgressBar(about);
+  updateProgress_->setObjectName("updateProgress");
+  updateProgress_->setAccessibleName("更新下载进度");
+  updateProgress_->setRange(0, 100);
+  updateProgress_->setValue(0);
+  updateProgress_->setTextVisible(false);
+  updateProgress_->setFixedHeight(20);
   update_ = new QPushButton("检查更新", about);
+  update_->setObjectName("updateAction");
+  updateCancel_ = new QPushButton("取消下载", about);
+  updateCancel_->setObjectName("updateCancel");
+  updateCancel_->setEnabled(false);
+  updateCancel_->setFixedWidth(100);
   auto* brand = new QHBoxLayout;
   auto* logo = new QLabel(about);
   logo->setFixedSize(48, 48);
-  logo->setPixmap(QPixmap(":/clickflow/icons/ClickFlow.png").scaled(
-      QSize(48, 48) * devicePixelRatioF(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+  logo->setPixmap(QPixmap(":/clickflow/icons/ClickFlow.png")
+                      .scaled(QSize(48, 48) * devicePixelRatioF(), Qt::KeepAspectRatio,
+                              Qt::SmoothTransformation));
   QPixmap logoPixmap = logo->pixmap();
   logoPixmap.setDevicePixelRatio(devicePixelRatioF());
   logo->setPixmap(logoPixmap);
@@ -59,31 +96,83 @@ PresetsAboutPage::PresetsAboutPage(QWidget* parent) : QWidget(parent) {
   brand->addWidget(platform_);
   a->addLayout(brand);
   a->addWidget(updateStatus_);
-  a->addWidget(update_);
+  a->addWidget(updateDetail_);
+  a->addWidget(updateProgress_);
+  auto* updateButtons = new QHBoxLayout;
+  updateButtons->addWidget(update_, 1);
+  updateButtons->addWidget(updateCancel_);
+  a->addLayout(updateButtons);
+#if !defined(Q_OS_WIN)
+  updateDetail_->hide();
+  updateProgress_->hide();
+  updateCancel_->hide();
+#endif
   root->addWidget(about);
   root->addStretch();
-  connect(list_, &QListWidget::itemSelectionChanged, this, [this]{ updateActions(); emit selectionChanged(); });
+  connect(list_, &QListWidget::itemSelectionChanged, this, [this] {
+    updateActions();
+    emit selectionChanged();
+  });
   connect(new_, &QPushButton::clicked, this, &PresetsAboutPage::newRequested);
   connect(save_, &QPushButton::clicked, this, &PresetsAboutPage::saveRequested);
   connect(rename_, &QPushButton::clicked, this, &PresetsAboutPage::renameRequested);
   connect(delete_, &QPushButton::clicked, this, &PresetsAboutPage::deleteRequested);
   connect(load_, &QPushButton::clicked, this, &PresetsAboutPage::loadRequested);
   connect(update_, &QPushButton::clicked, this, &PresetsAboutPage::updateRequested);
+  connect(updateCancel_, &QPushButton::clicked, this, &PresetsAboutPage::updateCancelRequested);
   updateActions();
 }
 void PresetsAboutPage::setPresetNames(const QStringList& names, const QString& selected) {
-  list_->clear(); list_->addItems(names);
+  list_->clear();
+  list_->addItems(names);
   emptyHint_->setVisible(names.isEmpty());
   list_->setVisible(!names.isEmpty());
   const auto matches = list_->findItems(selected, Qt::MatchExactly);
-  if (!matches.isEmpty()) list_->setCurrentItem(matches.first());
+  if (!matches.isEmpty())
+    list_->setCurrentItem(matches.first());
   updateActions();
 }
-QString PresetsAboutPage::selectedPresetName() const { return list_->currentItem() ? list_->currentItem()->text() : QString(); }
-QString PresetsAboutPage::productName() const { return product_->text(); }
-QString PresetsAboutPage::versionText() const { return version_->text(); }
-QString PresetsAboutPage::platformText() const { return platform_->text(); }
-void PresetsAboutPage::setMutationEnabled(bool enabled) { new_->setEnabled(enabled); save_->setEnabled(enabled); rename_->setEnabled(enabled && list_->currentItem()); delete_->setEnabled(enabled && list_->currentItem()); load_->setEnabled(enabled && list_->currentItem()); }
-void PresetsAboutPage::setUpdateStatus(const QString& status) { updateStatus_->setText(status); }
-void PresetsAboutPage::setUpdateAction(const QString& text, bool enabled) { update_->setText(text); update_->setEnabled(enabled); }
-void PresetsAboutPage::updateActions() { const bool selected = list_->currentItem(); rename_->setEnabled(selected); delete_->setEnabled(selected); load_->setEnabled(selected); }
+QString PresetsAboutPage::selectedPresetName() const {
+  return list_->currentItem() ? list_->currentItem()->text() : QString();
+}
+QString PresetsAboutPage::productName() const {
+  return product_->text();
+}
+QString PresetsAboutPage::versionText() const {
+  return version_->text();
+}
+QString PresetsAboutPage::platformText() const {
+  return platform_->text();
+}
+void PresetsAboutPage::setMutationEnabled(bool enabled) {
+  new_->setEnabled(enabled);
+  save_->setEnabled(enabled);
+  rename_->setEnabled(enabled && list_->currentItem());
+  delete_->setEnabled(enabled && list_->currentItem());
+  load_->setEnabled(enabled && list_->currentItem());
+}
+void PresetsAboutPage::setUpdateStatus(const QString& status) {
+  updateStatus_->setText(status);
+}
+void PresetsAboutPage::setUpdateAction(const QString& text, bool enabled) {
+  update_->setText(text);
+  update_->setEnabled(enabled);
+}
+void PresetsAboutPage::setUpdateProgress(int percent, const QString& detail, bool cancellable) {
+  updateDetail_->show();
+  updateProgress_->show();
+  updateCancel_->show();
+  updateProgress_->setRange(0, percent < 0 ? 0 : 100);
+  updateProgress_->setValue(qMax(0, percent));
+  updateProgress_->setTextVisible(false);
+  updateDetail_->setText(
+      percent >= 0 && !detail.isEmpty() ? QString("%1% · %2").arg(percent).arg(detail) : detail);
+  updateCancel_->setEnabled(cancellable);
+  updateCancel_->setText(percent < 0 ? "取消" : "取消下载");
+}
+void PresetsAboutPage::updateActions() {
+  const bool selected = list_->currentItem();
+  rename_->setEnabled(selected);
+  delete_->setEnabled(selected);
+  load_->setEnabled(selected);
+}

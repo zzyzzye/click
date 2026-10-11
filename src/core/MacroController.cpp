@@ -31,11 +31,12 @@ MacroController::MacroController(MacroRecorder* recorder, MacroPlayer* player,
 
 MacroController::~MacroController() {
   if (state_ == MacroControllerState::Recording && recorder_) recorder_->stop();
-  if (state_ == MacroControllerState::Playing && player_) player_->cancel();
+  if (isPlaying() && player_)
+    player_->cancel();
   if (coordinator_) {
     if (state_ == MacroControllerState::Recording) {
       coordinator_->release(AutomationActivity::Recording);
-    } else if (state_ == MacroControllerState::Playing) {
+    } else if (isPlaying()) {
       coordinator_->release(AutomationActivity::Playing);
     }
   }
@@ -115,7 +116,12 @@ bool MacroController::startPlayback(const MacroSequence& sequence,
   eventIndex_ = 0;
   completedRounds_ = 0;
   roundStartUs_ = 0;
+  excludedUs_ = 0;
+  pauseRequested_ = false;
+  safeBoundary_ = true;
+  lastStep_ = -1;
   playbackClock_.start();
+  relativeDeadlineUs_ = scaledOffsetUs(sequence_.events.first().offsetUs, sequence_.playback.speed);
   const auto generation = playbackGeneration_;
   setState(MacroControllerState::Playing);
   if (state_ != MacroControllerState::Playing || generation != playbackGeneration_) return true;
@@ -128,7 +134,7 @@ bool MacroController::startPlayback(const MacroSequence& sequence,
 void MacroController::stop() {
   if (state_ == MacroControllerState::Recording) {
     stopRecording();
-  } else if (state_ == MacroControllerState::Playing) {
+  } else if (isPlaying()) {
     finishPlayback("宏回放已停止", false);
   }
 }
@@ -136,7 +142,7 @@ void MacroController::stop() {
 void MacroController::emergencyStop() {
   if (state_ == MacroControllerState::Recording) {
     abortRecording("宏录制已紧急停止", false);
-  } else if (state_ == MacroControllerState::Playing) {
+  } else if (isPlaying()) {
     finishPlayback("宏回放已紧急停止", false);
   }
 }
@@ -150,7 +156,40 @@ bool MacroController::isRecording() const {
 }
 
 bool MacroController::isPlaying() const {
-  return state_ == MacroControllerState::Playing;
+  return state_ == MacroControllerState::Playing || isPaused();
+}
+
+void MacroController::pause() {
+  if (state_ != MacroControllerState::Playing)
+    return;
+  pauseRequested_ = true;
+  if (!safeBoundary_) {
+    emit statusChanged("等待当前完整动作结束后暂停；仍可紧急停止");
+    return;
+  }
+  playbackTimer_.stop();
+  pausedAtUs_ = playbackElapsedUs();
+  player_->releaseAll();
+  setState(MacroControllerState::Paused);
+  if (isPaused())
+    emit statusChanged("流程已暂停");
+}
+
+bool MacroController::resume(QString* error) {
+  if (!isPaused())
+    return false;
+  if (!player_->revalidate(error)) {
+    finishPlayback("继续失败，流程已停止", false,
+                   error ? *error : QString("运行条件已变化，请重新检查目标。"));
+    return false;
+  }
+  excludedUs_ = playbackClock_.nsecsElapsed() / 1000 - pausedAtUs_;
+  pauseRequested_ = false;
+  const auto generation = playbackGeneration_;
+  setState(MacroControllerState::Playing);
+  if (state_ == MacroControllerState::Playing && generation == playbackGeneration_)
+    scheduleNextPlaybackEvent();
+  return true;
 }
 
 const MacroSequence& MacroController::currentSequence() const {
@@ -189,24 +228,49 @@ void MacroController::dispatchDueEvents() {
          dispatched < maxEventsPerDispatch) {
     const auto& event = sequence_.events[eventIndex_];
     const qint64 deadlineUs =
-        roundStartUs_ + scaledOffsetUs(event.offsetUs, sequence_.playback.speed);
+        event.relativeDelay
+            ? relativeDeadlineUs_
+            : roundStartUs_ + scaledOffsetUs(event.offsetUs, sequence_.playback.speed);
     if (deadlineUs > nowUs) break;
     QString error;
     if (!player_->inject(event, &error)) {
+      if (event.stepIndex >= 0)
+        error = QString("步骤 %1：%2").arg(event.stepIndex + 1).arg(error);
       finishPlayback("宏回放失败", false, error);
       return;
     }
     ++eventIndex_;
     ++dispatched;
+    // 手工等待从动作实际完成计时；录制块重新锚定后仍按原时间线回放。
+    const qint64 completedAtUs = playbackElapsedUs();
+    if (event.timelineAnchor)
+      roundStartUs_ = completedAtUs - scaledOffsetUs(event.offsetUs, sequence_.playback.speed);
+    if (eventIndex_ < sequence_.events.size() && sequence_.events[eventIndex_].relativeDelay)
+      relativeDeadlineUs_ = completedAtUs + scaledOffsetUs(sequence_.events[eventIndex_].delayUs,
+                                                           sequence_.playback.speed);
+    safeBoundary_ = event.pauseBoundary;
+    if (event.stepIndex != lastStep_) {
+      lastStep_ = event.stepIndex;
+      emit stepProgress(event.stepIndex, completedRounds_ + 1, completedRounds_);
+    }
+    if (state_ != MacroControllerState::Playing || generation != playbackGeneration_)
+      return;
     emit playbackProgress(static_cast<int>(eventIndex_), sequence_.events.size());
     // 同步信号订阅者可能请求停止，不能继续注入或标记完成。
     if (state_ != MacroControllerState::Playing ||
         generation != playbackGeneration_) return;
+    if (pauseRequested_ && safeBoundary_) {
+      pause();
+      return;
+    }
     nowUs = playbackElapsedUs();
   }
 
   if (eventIndex_ >= sequence_.events.size()) {
     ++completedRounds_;
+    emit stepProgress(-1, completedRounds_, completedRounds_);
+    if (state_ != MacroControllerState::Playing || generation != playbackGeneration_)
+      return;
     const bool continuePlaying =
         sequence_.playback.infinite ||
         completedRounds_ < sequence_.playback.repeatCount;
@@ -215,8 +279,11 @@ void MacroController::dispatchDueEvents() {
       return;
     }
     eventIndex_ = 0;
+    lastStep_ = -1;
     roundStartUs_ = playbackElapsedUs() +
                     qint64(sequence_.playback.loopDelayMs) * 1000;
+    relativeDeadlineUs_ =
+        roundStartUs_ + scaledOffsetUs(sequence_.events.first().offsetUs, sequence_.playback.speed);
   }
   scheduleNextPlaybackEvent();
 }
@@ -239,7 +306,8 @@ void MacroController::abortRecording(const QString& reason, bool reportFailure) 
 
 void MacroController::finishPlayback(const QString& status, bool completed,
                                      const QString& failure) {
-  if (state_ != MacroControllerState::Playing) return;
+  if (!isPlaying())
+    return;
   ++playbackGeneration_;
   playbackTimer_.stop();
   if (player_) player_->cancel();
@@ -251,7 +319,7 @@ void MacroController::finishPlayback(const QString& status, bool completed,
 }
 
 qint64 MacroController::playbackElapsedUs() const {
-  return playbackClock_.isValid() ? playbackClock_.nsecsElapsed() / 1000 : 0;
+  return playbackClock_.isValid() ? playbackClock_.nsecsElapsed() / 1000 - excludedUs_ : 0;
 }
 
 void MacroController::scheduleNextPlaybackEvent() {
@@ -259,9 +327,10 @@ void MacroController::scheduleNextPlaybackEvent() {
     return;
   }
   const qint64 deadlineUs =
-      roundStartUs_ +
-      scaledOffsetUs(sequence_.events[eventIndex_].offsetUs,
-                     sequence_.playback.speed);
+      sequence_.events[eventIndex_].relativeDelay
+          ? relativeDeadlineUs_
+          : roundStartUs_ +
+                scaledOffsetUs(sequence_.events[eventIndex_].offsetUs, sequence_.playback.speed);
   const qint64 remainingUs = std::max<qint64>(0, deadlineUs - playbackElapsedUs());
   const int delayMs = static_cast<int>(std::min<qint64>(
       std::numeric_limits<int>::max(), (remainingUs + 999) / 1000));

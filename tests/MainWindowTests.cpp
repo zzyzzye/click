@@ -39,6 +39,7 @@
 #include "app/widgets/NavigationSidebar.h"
 #include "app/widgets/SmoothScrollArea.h"
 #include "app/widgets/StatusStrip.h"
+#include "app/pages/FlowEditorPage.h"
 
 class MainWindowFakeClickBackend final : public ClickBackend {
  public:
@@ -59,6 +60,18 @@ class MainWindowFakeClickBackend final : public ClickBackend {
   }
 
   void requestAccessibilityPermission() override {}
+  QVector<QRect> screenRects() const override {
+    return {QRect(0, 0, 1920, 1080)};
+  }
+  bool supportsKey(const QString&) const override {
+    return true;
+  }
+  bool supportsText() const override {
+    return true;
+  }
+  bool textInput(const QString&) override {
+    return true;
+  }
 
   ClickProfile lastProfile;
   int clickCount = 0;
@@ -180,7 +193,77 @@ class MainWindowTests : public QObject {
   void windowStyleReappliedAfterOnTopToggle();
   void immersiveCaptionIsInstalled();
   void sidebarNavigationDoesNotMinimizeWindow();
+  void flowControlsRemainFixedAndHotkeysStopPausedRun();
 };
+
+void MainWindowTests::flowControlsRemainFixedAndHotkeysStopPausedRun() {
+  QTemporaryDir tmp;
+  auto settings = std::make_unique<SettingsRepository>(
+      "ClickFlow", "FlowWindow-" + QUuid::createUuid().toString());
+  settings->setMacroSafetyAcknowledged(true);
+  auto backend = std::make_unique<MainWindowFakeClickBackend>();
+  auto* observed = backend.get();
+  auto hotkeys = std::make_unique<MainWindowFakeHotkeyService>();
+  auto* keys = hotkeys.get();
+  MainWindow window(
+      std::move(backend), std::move(hotkeys), std::move(settings), {},
+      std::make_unique<MacroRepository>(tmp.path() + "/macros"), [](QWidget*) { return true; },
+      [](QWidget*) { return QString("测试"); }, {}, nullptr);
+  auto* page = window.findChild<FlowEditorPage*>();
+  QVERIFY(page);
+  auto d = FlowTypes::create();
+  d.screens = observed->screenRects();
+  d.name = "三个点位的演示流程";
+  for (int i = 0; i < 3; ++i) {
+    auto s = FlowTypes::createStep(FlowStepKind::Click);
+    s.point = {25 + 50 * i, 35};
+    s.waitMs = 500;
+    d.steps.append(s);
+  }
+  page->setDocument(d);
+  page->findChild<QSpinBox*>("flowWait")->setValue(600);
+  window.findChild<NavigationSidebar*>()->setCurrentPage(ShellPage::FlowEditor);
+  window.show();
+  auto* pages = window.findChild<QStackedWidget*>("contentPages");
+  auto* scroll = dynamic_cast<SmoothScrollArea*>(pages->currentWidget());
+  QVERIFY(scroll);
+  for (const auto size : {QSize(820, 560), QSize(960, 680)}) {
+    window.resize(size);
+    QCoreApplication::processEvents();
+    QTRY_VERIFY_WITH_TIMEOUT(!pages->graphicsEffect()->isEnabled(), 500);
+    auto* run = window.findChild<QPushButton*>("flowRun");
+    QVERIFY(run->isVisible());
+    const auto position = run->mapTo(&window, QPoint());
+    scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+    QCoreApplication::processEvents();
+    QCOMPARE(run->mapTo(&window, QPoint()), position);
+    QCOMPARE(scroll->horizontalScrollBar()->maximum(), 0);
+    scroll->verticalScrollBar()->setValue(200);
+    QCoreApplication::processEvents();
+    QVERIFY(
+        window.grab().save(QDir::tempPath() + QString("/clickflow-flow-%1.png").arg(size.width())));
+  }
+  window.findChild<QPushButton*>("flowRun")->click();
+  QCOMPARE(observed->clickCount, 1);
+  QVERIFY(!page->findChild<QPushButton*>("flowAdd")->isEnabled());
+  emit keys->flowPausePressed();
+  QCOMPARE(window.findChild<QPushButton*>("flowPause")->text(), QString("继续"));
+  emit keys->startStopPressed();
+  QCOMPARE(observed->clickCount, 1);
+  emit keys->emergencyStopPressed();
+  QVERIFY(page->findChild<QPushButton*>("flowAdd")->isEnabled());
+  window.findChild<QPushButton*>("flowRun")->click();
+  QCOMPARE(observed->clickCount, 2);
+  emit keys->flowPausePressed();
+  QTimer::singleShot(0, [] {
+    auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+    QVERIFY(box);
+    box->done(QMessageBox::Cancel);
+  });
+  QVERIFY(!window.close());
+  QVERIFY(page->isDirty());
+  QVERIFY(window.findChild<QPushButton*>("flowRun")->isEnabled());
+}
 
 #if defined(Q_OS_WIN)
 void MainWindowTests::windowsFactoriesCreateNativeServices() {
@@ -334,8 +417,8 @@ void MainWindowTests::usesPersistentClickFlowShell() {
   QVERIFY(status);
   QVERIFY(actions);
   QVERIFY(pages);
-  QCOMPARE(sidebar->pageCount(), 4);
-  QCOMPARE(pages->count(), 4);
+  QCOMPARE(sidebar->pageCount(), 5);
+  QCOMPARE(pages->count(), 5);
   for (int index = 0; index < pages->count(); ++index) {
     auto* scroll = dynamic_cast<SmoothScrollArea*>(pages->widget(index));
     QVERIFY(scroll);

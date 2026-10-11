@@ -7,6 +7,7 @@
 #include <QCloseEvent>
 #include <QDateTime>
 #include <QEvent>
+#include <QDir>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLineEdit>
@@ -25,6 +26,8 @@
 #include "app/controllers/ClickWorkflowController.h"
 #include "app/controllers/HotkeyController.h"
 #include "app/controllers/MacroWorkflowController.h"
+#include "app/controllers/FlowWorkflowController.h"
+#include "app/pages/FlowEditorPage.h"
 #include "app/controllers/ProfileController.h"
 #include "app/controllers/UpdateController.h"
 #include "app/controllers/WindowChromeController.h"
@@ -147,24 +150,49 @@ MainWindow::MainWindow(
       std::move(backend), &automationCoordinator_, clickPage_, actionBar_,
       statusStrip_, [this] { return profileController_->currentProfile(); },
       this, this);
+  const QString flowRoot =
+      macroRepository ? QDir(macroRepository->rootPath()).filePath("../flows") : QString();
   macroController_ = std::make_unique<MacroWorkflowController>(
-      std::move(macroServices), std::move(macroRepository),
-      &automationCoordinator_, macroPage_, statusStrip_,
-      [this] { return profileController_->currentProfile(); },
-      std::move(safetyConfirmation), std::move(macroNameProvider),
+      std::move(macroServices), std::move(macroRepository), &automationCoordinator_, macroPage_,
+      statusStrip_, [this] { return profileController_->currentProfile(); }, safetyConfirmation,
+      std::move(macroNameProvider),
       [this] { return profileController_->macroSafetyAcknowledged(); },
       [this] { profileController_->acknowledgeMacroSafety(); },
       [this] { return static_cast<quintptr>(winId()); }, this, this);
+  flowController_ = std::make_unique<FlowWorkflowController>(
+      flowPage_, clickController_->backend(), macroController_->player(), &automationCoordinator_,
+      flowRoot,
+      [this, safetyConfirmation] {
+        if (profileController_->macroSafetyAcknowledged())
+          return true;
+        if (!safetyConfirmation(this))
+          return false;
+        profileController_->acknowledgeMacroSafety();
+        return true;
+      },
+      this);
+  flowController_->setReservedHotkeys([this] {
+    if (!hotkeyController_->isEnabled())
+      return QStringList{};
+    const auto h = profileController_->currentProfile().hotkeys;
+    return QStringList{h.startStop,   h.capturePoint,  h.emergencyStop,
+                       h.macroRecord, h.macroPlayback, h.flowPause};
+  });
   workflowUiController_ = std::make_unique<WorkflowUiStateController>(
       clickPage_, hotkeyPage_, macroPage_, presetsPage_, actionBar_,
       macroController_->isSupported(), this);
   updateController_ = std::make_unique<UpdateController>(
       [this] {
-        return !clickController_->isRunning() &&
+        return automationCoordinator_.activity() == AutomationActivity::Idle &&
+               !clickController_->isRunning() && !flowController_->isRunning() &&
                macroController_->state() == MacroControllerState::Idle;
       },
       this);
 
+  updateController_->setRestartPreparation([this] {
+    automationCoordinator_.requestEmergencyStop();
+    return macroController_->resolveUnsavedDraft() && flowController_->resolveUnsaved();
+  });
   installInputFilters();
   connectControllers();
   macroController_->initialize();
@@ -219,6 +247,7 @@ void MainWindow::buildUi() {
   macroPage_ = new MacroRecordingPage(pages_);
   hotkeyPage_ = new HotkeySettingsPage(pages_);
   presetsPage_ = new PresetsAboutPage(pages_);
+  flowPage_ = new FlowEditorPage(pages_);
 
   const auto addScrollablePage = [this](QWidget* page, const QString& title,
                                        const QString& description) {
@@ -249,6 +278,8 @@ void MainWindow::buildUi() {
   addScrollablePage(macroPage_, "键鼠录制", "录制操作并重复回放，运行时可用紧急停止热键中断。");
   addScrollablePage(hotkeyPage_, "热键设置", "设置控制快捷键，并手动启用全局热键。");
   addScrollablePage(presetsPage_, "预设与关于", "保存常用配置，查看版本与更新。");
+  addScrollablePage(flowPage_, "编排步骤",
+                    "点击、按键、文字与等待依次执行。先试运行一轮，再保存常用流程。");
 
   actionBar_ = new ActionBar(content);
   layout->addWidget(statusStrip_);
@@ -258,6 +289,11 @@ void MainWindow::buildUi() {
   macroActionPanel_->setParent(content);
   layout->addWidget(macroActionPanel_);
   macroActionPanel_->hide();
+  flowActionPanel_ = flowPage_->actionPanel();
+  flowPage_->layout()->removeWidget(flowActionPanel_);
+  flowActionPanel_->setParent(content);
+  layout->addWidget(flowActionPanel_);
+  flowActionPanel_->hide();
   layout->addWidget(actionBar_);
   shell->addWidget(content, 1);
   outer->addWidget(shellContainer, 1);
@@ -288,7 +324,11 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     macroController_->toggleRecording();
   }
   automationCoordinator_.requestEmergencyStop();
-  if (!macroController_->resolveUnsavedDraft()) {
+  if (!updateRestartApproved_ && !macroController_->resolveUnsavedDraft()) {
+    event->ignore();
+    return;
+  }
+  if (!updateRestartApproved_ && !flowController_->resolveUnsaved()) {
     event->ignore();
     return;
   }
@@ -301,8 +341,10 @@ void MainWindow::connectControllers() {
             if (pages_->currentIndex() == static_cast<int>(page)) return;
             pageTransition_->stop();
             pages_->setCurrentIndex(static_cast<int>(page));
-            actionBar_->setVisible(page != ShellPage::MacroRecording);
+            actionBar_->setVisible(page != ShellPage::MacroRecording &&
+                                   page != ShellPage::FlowEditor);
             macroActionPanel_->setVisible(page == ShellPage::MacroRecording);
+            flowActionPanel_->setVisible(page == ShellPage::FlowEditor);
             if (!reducedMotion_ && style()->styleHint(QStyle::SH_Widget_Animate)) {
               pageOpacity_->setEnabled(true);
               pageTransition_->setStartValue(0.15);
@@ -337,18 +379,44 @@ void MainWindow::connectControllers() {
           profileController_.get(), &ProfileController::saveLastUsed);
   connect(hotkeyController_.get(), &HotkeyController::clickToggleRequested,
           clickController_.get(), &ClickWorkflowController::toggle);
-  connect(hotkeyController_.get(), &HotkeyController::capturePointRequested,
-          clickController_.get(), &ClickWorkflowController::capturePoint);
+  connect(hotkeyController_.get(), &HotkeyController::capturePointRequested, this, [this] {
+    if (sidebar_->currentPage() == ShellPage::FlowEditor)
+      flowController_->capture(false);
+    else
+      clickController_->capturePoint();
+  });
   connect(hotkeyController_.get(), &HotkeyController::emergencyStopRequested,
           clickController_.get(), &ClickWorkflowController::emergencyStop);
   connect(hotkeyController_.get(), &HotkeyController::emergencyStopRequested,
           macroController_.get(), &MacroWorkflowController::emergencyStop);
+  connect(hotkeyController_.get(), &HotkeyController::emergencyStopRequested, flowController_.get(),
+          &FlowWorkflowController::emergencyStop);
+  connect(hotkeyController_.get(), &HotkeyController::flowPauseRequested, flowController_.get(),
+          &FlowWorkflowController::togglePause);
   connect(hotkeyController_.get(),
           &HotkeyController::macroRecordToggleRequested,
           macroController_.get(), &MacroWorkflowController::toggleRecording);
-  connect(hotkeyController_.get(),
-          &HotkeyController::macroPlaybackToggleRequested,
-          macroController_.get(), &MacroWorkflowController::togglePlayback);
+  connect(hotkeyController_.get(), &HotkeyController::macroPlaybackToggleRequested, this, [this] {
+    if (flowController_->isRunning())
+      flowController_->emergencyStop();
+    else if (sidebar_->currentPage() == ShellPage::FlowEditor)
+      emit flowPage_->runRequested(false);
+    else
+      macroController_->togglePlayback();
+  });
+  connect(macroPage_, &MacroRecordingPage::editStepsRequested, this, [this] {
+    const auto sequence = macroController_->selectedRecording();
+    if (!sequence) {
+      macroPage_->setError("请先录制或选择一个已保存的录制。");
+      return;
+    }
+    if (flowController_->openRecording(*sequence)) {
+      macroController_->transferDraft(sequence->id);
+      sidebar_->setCurrentPage(ShellPage::FlowEditor);
+    }
+  });
+  connect(flowController_.get(), &FlowWorkflowController::runningChanged,
+          workflowUiController_.get(), &WorkflowUiStateController::setFlowRunning);
 
   connect(clickController_.get(),
           &ClickWorkflowController::profilePersistRequested,
@@ -362,12 +430,19 @@ void MainWindow::connectControllers() {
 
   connect(presetsPage_, &PresetsAboutPage::updateRequested,
           updateController_.get(), &UpdateController::handleAction);
+  connect(presetsPage_, &PresetsAboutPage::updateCancelRequested,
+          updateController_.get(), &UpdateController::cancel);
+  connect(updateController_.get(), &UpdateController::progressChanged,
+          presetsPage_, &PresetsAboutPage::setUpdateProgress);
   connect(updateController_.get(), &UpdateController::statusChanged,
           presetsPage_, &PresetsAboutPage::setUpdateStatus);
   connect(updateController_.get(), &UpdateController::actionChanged,
           presetsPage_, &PresetsAboutPage::setUpdateAction);
-  connect(updateController_.get(), &UpdateController::quitRequested, qApp,
-          &QCoreApplication::quit);
+  connect(updateController_.get(), &UpdateController::quitRequested, this, [this] {
+    // 草稿已在交接前处理，不在安装器等待退出时再次弹出同一个确认。
+    updateRestartApproved_ = true;
+    QCoreApplication::quit();
+  });
 }
 
 void MainWindow::showEvent(QShowEvent* event) {

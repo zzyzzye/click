@@ -15,4 +15,7 @@ class MacroPlayer : public QObject {
   virtual bool inject(const MacroEvent& event, QString* error = nullptr) = 0;
   virtual void releaseAll() = 0;
   virtual void cancel() = 0;
+  virtual bool revalidate(QString* = nullptr) {
+    return true;
+  }
 };

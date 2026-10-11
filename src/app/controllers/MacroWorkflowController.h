@@ -49,8 +49,13 @@ class MacroWorkflowController final : public QObject {
   void emergencyStop();
   bool resolveUnsavedDraft();
   bool hasDraft() const { return draft_.has_value(); }
+  MacroPlayer* player() const {
+    return services_.player.get();
+  }
+  std::optional<MacroSequence> selectedRecording() const;
+  void transferDraft(const QString& id);
 
- signals:
+signals:
   void stateChanged(MacroControllerState state);
 
  private:

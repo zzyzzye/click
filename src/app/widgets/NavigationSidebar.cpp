@@ -56,9 +56,8 @@ NavigationSidebar::NavigationSidebar(QWidget* parent) : QFrame(parent) {
     QString label;
     ShellPage page;
   } items[] = {
-      {"连点设置", ShellPage::ClickSettings},
-      {"键鼠录制", ShellPage::MacroRecording},
-      {"热键", ShellPage::Hotkeys},
+      {"连点设置", ShellPage::ClickSettings},  {"键鼠录制", ShellPage::MacroRecording},
+      {"编排步骤", ShellPage::FlowEditor},     {"热键", ShellPage::Hotkeys},
       {"预设与关于", ShellPage::PresetsAbout},
   };
   for (const auto& item : items) {

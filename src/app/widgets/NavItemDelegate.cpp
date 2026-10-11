@@ -35,14 +35,17 @@ void NavItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& optio
   painter->setBrush(Qt::NoBrush);
   painter->save();
   painter->translate(rowRect.left() + 18, rowRect.center().y() - 8);
-  switch (index.row()) {
-    case 0: {
-      QPainterPath cursor;
-      cursor.moveTo(1, 0); cursor.lineTo(13, 9); cursor.lineTo(8, 10);
-      cursor.lineTo(5, 15); cursor.closeSubpath();
-      painter->drawPath(cursor);
-      break;
-    }
+  switch (index.data(Qt::UserRole).toInt()) {
+  case 0: {
+    QPainterPath cursor;
+    cursor.moveTo(1, 0);
+    cursor.lineTo(13, 9);
+    cursor.lineTo(8, 10);
+    cursor.lineTo(5, 15);
+    cursor.closeSubpath();
+    painter->drawPath(cursor);
+    break;
+  }
     case 1:
       painter->drawRoundedRect(QRectF(0, 2, 16, 12), 3, 3);
       painter->drawEllipse(QRectF(5, 5, 6, 6));
@@ -52,13 +55,20 @@ void NavItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& optio
       for (int x = 3; x < 15; x += 4) painter->drawPoint(QPointF(x, 6));
       painter->drawLine(QPointF(4, 10), QPointF(12, 10));
       break;
+    case 4:
+      painter->drawLine(QPointF(3, 3), QPointF(3, 13));
+      for (int y : {2, 8, 14}) {
+        painter->drawEllipse(QPointF(3, y), 2, 2);
+        painter->drawLine(QPointF(8, y), QPointF(16, y));
+      }
+      break;
     default:
       for (int y = 2; y < 16; y += 6) {
         painter->drawLine(QPointF(0, y), QPointF(16, y));
         painter->drawEllipse(QPointF(y == 8 ? 11 : 5, y), 2, 2);
       }
       break;
-  }
+    }
   painter->restore();
   painter->setPen(ink);
   QFont font = option.font;

@@ -124,6 +124,16 @@ void MacroWorkflowController::togglePlayback() {
 void MacroWorkflowController::emergencyStop() {
   controller_.emergencyStop();
 }
+std::optional<MacroSequence> MacroWorkflowController::selectedRecording() const {
+  return findMacro(macroPage_->selectedMacroId());
+}
+void MacroWorkflowController::transferDraft(const QString& id) {
+  if (draft_ && draft_->id == id) {
+    draft_.reset();
+    refreshMacroList();
+    statusStrip_->setStatus("录制草稿已移到步骤编辑器，请保存流程");
+  }
+}
 
 void MacroWorkflowController::startRecording(
     const MacroRecordingOptions& options) {

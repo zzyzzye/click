@@ -9,7 +9,8 @@ enum class ShellPage {
   ClickSettings = 0,
   MacroRecording = 1,
   Hotkeys = 2,
-  PresetsAbout = 3
+  PresetsAbout = 3,
+  FlowEditor = 4
 };
 Q_DECLARE_METATYPE(ShellPage)
 

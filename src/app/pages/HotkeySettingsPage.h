@@ -25,4 +25,5 @@ class HotkeySettingsPage final : public QWidget {
   QKeySequenceEdit* emergency_ = nullptr;
   QKeySequenceEdit* macroRecord_ = nullptr;
   QKeySequenceEdit* macroPlayback_ = nullptr;
+  QKeySequenceEdit* flowPause_ = nullptr;
 };

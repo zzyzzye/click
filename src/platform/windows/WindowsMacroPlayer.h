@@ -22,8 +22,9 @@ class WindowsMacroPlayer final : public MacroPlayer {
   bool inject(const MacroEvent& event, QString* error = nullptr) override;
   void releaseAll() override;
   void cancel() override;
+  bool revalidate(QString* error = nullptr) override;
 
- private:
+private:
   struct HeldKey {
     quint32 virtualKey = 0;
     quint32 scanCode = 0;

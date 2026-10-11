@@ -31,6 +31,12 @@ MacroRepository::MacroRepository(QString rootPath)
 
 bool MacroRepository::save(const MacroSequence& sequence, QString* error) const {
   if (!MacroTypes::validate(sequence, error)) return false;
+  for (const auto& e : sequence.events) {
+    if (int(e.type) > int(MacroEventType::HorizontalWheel)) {
+      setError(error, "步骤流程应保存为新版流程文件，不能写入旧宏格式。");
+      return false;
+    }
+  }
   if (!QDir().mkpath(rootPath_)) {
     setError(error, "无法创建宏保存目录。");
     return false;

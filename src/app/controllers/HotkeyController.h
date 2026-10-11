@@ -31,12 +31,13 @@ class HotkeyController final : public QObject {
   bool isEnabled() const { return enabled_; }
 
  signals:
-  void profilePersistRequested(const ClickProfile& profile);
-  void clickToggleRequested();
-  void capturePointRequested();
-  void emergencyStopRequested();
-  void macroRecordToggleRequested();
-  void macroPlaybackToggleRequested();
+   void flowPauseRequested();
+   void profilePersistRequested(const ClickProfile& profile);
+   void clickToggleRequested();
+   void capturePointRequested();
+   void emergencyStopRequested();
+   void macroRecordToggleRequested();
+   void macroPlaybackToggleRequested();
 
  private:
   void handleHotkeysChanged();

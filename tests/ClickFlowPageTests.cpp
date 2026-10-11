@@ -5,6 +5,8 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QProgressBar>
+#include <QDir>
 #include <QSignalSpy>
 #include <QSpinBox>
 #include <QWidget>
@@ -25,6 +27,7 @@ class ClickFlowPageTests : public QObject {
   void advancedOptionsCollapseWithoutChangingProfile();
   void hotkeysRoundTripAndValidate();
   void presetsAndAboutExposeProductState();
+  void updateProgressHasStableControlsAndCancellation();
   void macroPageKeepsHotkeysVisibleAndEmitsSettings();
   void controlsUseConsistentComfortableHeights();
   void hotkeyActivationIsExplicit();
@@ -169,6 +172,44 @@ void ClickFlowPageTests::presetsAndAboutExposeProductState() {
   QVERIFY(!page.platformText().isEmpty());
 }
 
+void ClickFlowPageTests::updateProgressHasStableControlsAndCancellation() {
+  PresetsAboutPage page;
+  page.setStyleSheet(clickFlowStyleSheet(false));
+  page.resize(580, 500);
+  page.setPresetNames({});
+  page.setUpdateStatus("正在下载 v0.6.0，完成后可选择重启更新。");
+  page.setUpdateAction("下载中…", false);
+  page.setUpdateProgress(42, "8.4 MB / 20.0 MB", true);
+  page.show();
+  QCoreApplication::processEvents();
+  auto* progress = page.findChild<QProgressBar*>("updateProgress");
+  auto* action = page.findChild<QPushButton*>("updateAction");
+  auto* cancel = page.findChild<QPushButton*>("updateCancel");
+  QVERIFY(progress && action && cancel);
+  QCOMPARE(progress->value(), 42);
+  QVERIFY(!action->isEnabled());
+  QVERIFY(cancel->isEnabled());
+  QSignalSpy cancelled(&page, &PresetsAboutPage::updateCancelRequested);
+  cancel->setFocus();
+  QTest::keyClick(cancel, Qt::Key_Space);
+  QCOMPARE(cancelled.count(), 1);
+  const auto actionPosition = action->pos();
+  QVERIFY(page.grab().save(QDir::tempPath() + "/clickflow-update-downloading.png"));
+  page.setUpdateProgress(-1, "正在校验完整性", false);
+  QCOMPARE(progress->maximum(), 0);
+  QVERIFY(!cancel->isEnabled());
+  page.setUpdateStatus("v0.6.0 已准备好，更新会保留配置、录制和流程。");
+  page.setUpdateProgress(100, "下载与校验已完成", false);
+  page.setUpdateAction("重启并更新", true);
+  QCoreApplication::processEvents();
+  QCOMPARE(action->pos(), actionPosition);
+  QSignalSpy restart(&page, &PresetsAboutPage::updateRequested);
+  action->setFocus();
+  QTest::keyClick(action, Qt::Key_Space);
+  QCOMPARE(restart.count(), 1);
+  QVERIFY(page.grab().save(QDir::tempPath() + "/clickflow-update-ready.png"));
+}
+
 void ClickFlowPageTests::macroPageKeepsHotkeysVisibleAndEmitsSettings() {
   MacroRecordingPage page;
   HotkeyBindings hotkeys;
@@ -211,8 +252,7 @@ void ClickFlowPageTests::macroPageKeepsHotkeysVisibleAndEmitsSettings() {
       qvariant_cast<MacroRecordingOptions>(recordSpy.first().first());
   QCOMPARE(options.targetMode, MacroTargetMode::Window);
   QCOMPARE(options.target.nativeId, quintptr(42));
-  QCOMPARE(options.reservedHotkeys,
-           QStringList({"Ctrl+F9", "Ctrl+F10", "Ctrl+F8"}));
+  QCOMPARE(options.reservedHotkeys, QStringList({"Ctrl+F9", "Ctrl+F10", "Ctrl+F8", "F11"}));
 
   MacroSequence sequence;
   sequence.id = "macro-1";

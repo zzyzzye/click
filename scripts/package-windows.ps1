@@ -46,6 +46,19 @@ New-Item -ItemType Directory -Path $resolvedOutputDir -Force | Out-Null
 $deployedExe = Join-Path $resolvedOutputDir "ClickFlow.exe"
 Copy-Item -LiteralPath $sourceExe -Destination $deployedExe -Force
 
+# 更新助手与主程序同架构，且不依赖 Qt 或动态 VC 运行库。
+$sourceHelper = Join-Path (Split-Path -Parent $sourceExe) "ClickFlowUpdateHelper.exe"
+if (-not (Test-Path -LiteralPath $sourceHelper -PathType Leaf)) {
+  throw "缺少 ClickFlowUpdateHelper.exe，请重新构建后再打包。"
+}
+$helperBinary = [System.IO.File]::ReadAllBytes($sourceHelper)
+$helperPeOffset = [BitConverter]::ToInt32($helperBinary, 0x3c)
+$helperMachine = [BitConverter]::ToUInt16($helperBinary, $helperPeOffset + 4)
+if ($helperMachine -ne $expectedMachine) {
+  throw "更新助手架构与目标 $Architecture 不一致。"
+}
+Copy-Item -LiteralPath $sourceHelper -Destination $resolvedOutputDir -Force
+
 $deployMode = if ($Configuration -eq "Debug") { "--debug" } else { "--release" }
 & $windeployqtPath $deployMode --compiler-runtime --no-translations `
   --dir $resolvedOutputDir $deployedExe

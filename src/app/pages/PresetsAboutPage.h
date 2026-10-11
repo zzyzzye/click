@@ -1,9 +1,12 @@
 #pragma once
 #include <QWidget>
-class QLabel; class QListWidget; class QPushButton;
+class QLabel;
+class QListWidget;
+class QPushButton;
+class QProgressBar;
 class PresetsAboutPage final : public QWidget {
   Q_OBJECT
- public:
+public:
   explicit PresetsAboutPage(QWidget* parent = nullptr);
   void setPresetNames(const QStringList& names, const QString& selected = {});
   QString selectedPresetName() const;
@@ -13,17 +16,32 @@ class PresetsAboutPage final : public QWidget {
   void setMutationEnabled(bool enabled);
   void setUpdateStatus(const QString& status);
   void setUpdateAction(const QString& text, bool enabled);
- signals:
-  void newRequested(); void saveRequested(); void renameRequested();
-  void deleteRequested(); void loadRequested(); void selectionChanged();
+  void setUpdateProgress(int percent, const QString& detail, bool cancellable);
+signals:
+  void newRequested();
+  void saveRequested();
+  void renameRequested();
+  void deleteRequested();
+  void loadRequested();
+  void selectionChanged();
   void updateRequested();
- private:
+  void updateCancelRequested();
+
+private:
   QLabel* emptyHint_ = nullptr;
   void updateActions();
   QListWidget* list_ = nullptr;
-  QPushButton* new_ = nullptr; QPushButton* save_ = nullptr; QPushButton* rename_ = nullptr;
-  QPushButton* delete_ = nullptr; QPushButton* load_ = nullptr;
-  QLabel* product_ = nullptr; QLabel* version_ = nullptr; QLabel* platform_ = nullptr;
+  QPushButton* new_ = nullptr;
+  QPushButton* save_ = nullptr;
+  QPushButton* rename_ = nullptr;
+  QPushButton* delete_ = nullptr;
+  QPushButton* load_ = nullptr;
+  QLabel* product_ = nullptr;
+  QLabel* version_ = nullptr;
+  QLabel* platform_ = nullptr;
   QLabel* updateStatus_ = nullptr;
   QPushButton* update_ = nullptr;
+  QPushButton* updateCancel_ = nullptr;
+  QProgressBar* updateProgress_ = nullptr;
+  QLabel* updateDetail_ = nullptr;
 };

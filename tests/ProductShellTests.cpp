@@ -16,19 +16,19 @@ class ProductShellTests : public QObject {
   Q_OBJECT
 
  private slots:
-  void sidebarHasFourProductPages();
-  void persistentRegionsExposeState();
-  void navDelegatePaintsFluentSelectionIndicator();
-  void navDelegateUsesFluentRowHeight();
-  void captionBarExposesWindowControls();
+   void sidebarHasFiveProductPages();
+   void persistentRegionsExposeState();
+   void navDelegatePaintsFluentSelectionIndicator();
+   void navDelegateUsesFluentRowHeight();
+   void captionBarExposesWindowControls();
 };
 
-void ProductShellTests::sidebarHasFourProductPages() {
+void ProductShellTests::sidebarHasFiveProductPages() {
   QCoreApplication::setApplicationVersion("0.2.0");
   NavigationSidebar sidebar;
   QSignalSpy spy(&sidebar, &NavigationSidebar::pageSelected);
 
-  QCOMPARE(sidebar.pageCount(), 4);
+  QCOMPARE(sidebar.pageCount(), 5);
   QCOMPARE(sidebar.productName(), QString("ClickFlow"));
   QCOMPARE(sidebar.versionText(), QString("0.2.0"));
 

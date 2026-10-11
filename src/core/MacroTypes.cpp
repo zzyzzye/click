@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 
 namespace {
 
@@ -18,7 +19,15 @@ QString eventTypeName(MacroEventType type) {
     case MacroEventType::MouseButtonUp: return "mouseButtonUp";
     case MacroEventType::Wheel: return "wheel";
     case MacroEventType::HorizontalWheel: return "horizontalWheel";
-  }
+    case MacroEventType::ActionClick:
+      return "actionClick";
+    case MacroEventType::ActionKey:
+      return "actionKey";
+    case MacroEventType::ActionText:
+      return "actionText";
+    case MacroEventType::Boundary:
+      return "boundary";
+    }
   return {};
 }
 
@@ -67,6 +76,11 @@ std::optional<MacroTargetMode> targetModeFromName(const QString& name) {
 
 void setError(QString* error, const QString& message) {
   if (error) *error = message;
+}
+bool validTimestamp(const QJsonValue& value) {
+  const double number = value.toDouble(-1);
+  return std::isfinite(number) && number >= 0 && number <= 9007199254740991.0 &&
+         number == std::floor(number);
 }
 
 bool supportedSpeed(double speed) {
@@ -145,7 +159,11 @@ std::optional<MacroSequence> MacroTypes::fromJson(const QJsonObject& object,
   sequence.target.title = target.value("title").toString();
   sequence.target.clientSize = QSize(target.value("clientWidth").toInt(),
                                      target.value("clientHeight").toInt());
-  sequence.durationUs = static_cast<qint64>(object.value("durationUs").toDouble(-1));
+  if (!validTimestamp(object.value("durationUs"))) {
+    setError(error, "宏时长超出范围或格式无效。");
+    return std::nullopt;
+  }
+  sequence.durationUs = static_cast<qint64>(object.value("durationUs").toDouble());
 
   const QJsonObject playback = object.value("playback").toObject();
   sequence.playback.speed = playback.value("speed").toDouble(0.0);
@@ -163,6 +181,17 @@ std::optional<MacroSequence> MacroTypes::fromJson(const QJsonObject& object,
     }
     MacroEvent event;
     event.type = *type;
+    if (!validTimestamp(eventObject.value("offsetUs"))) {
+      setError(error, "宏事件时间超出范围或格式无效。");
+      return std::nullopt;
+    }
+    for (const auto* field : {"virtualKey", "scanCode", "nativeFlags"}) {
+      const double n = eventObject.value(field).toDouble(-1);
+      if (!std::isfinite(n) || n < 0 || n > 4294967295.0 || n != std::floor(n)) {
+        setError(error, "宏按键参数超出范围或格式无效。");
+        return std::nullopt;
+      }
+    }
     event.offsetUs = static_cast<qint64>(eventObject.value("offsetUs").toDouble(-1));
     event.virtualKey = static_cast<quint32>(eventObject.value("virtualKey").toDouble());
     event.scanCode = static_cast<quint32>(eventObject.value("scanCode").toDouble());

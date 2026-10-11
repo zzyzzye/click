@@ -30,7 +30,8 @@ bool MacOSHotkeyService::registerHotkeys(const ClickProfile& profile) {
                   registerOne(profile.hotkeys.capturePoint, Action::CapturePoint) &&
                   registerOne(profile.hotkeys.emergencyStop, Action::EmergencyStop) &&
                   registerOne(profile.hotkeys.macroRecord, Action::MacroRecord) &&
-                  registerOne(profile.hotkeys.macroPlayback, Action::MacroPlayback);
+                  registerOne(profile.hotkeys.macroPlayback, Action::MacroPlayback) &&
+                  registerOne(profile.hotkeys.flowPause, Action::FlowPause);
   if (!ok) {
     unregisterAll();
     emit registrationFailed("Failed to register one or more global hotkeys.");
@@ -88,21 +89,24 @@ void MacOSHotkeyService::dispatchHotkey(int actionId) {
   }
   const Action action = registeredActions_.value(actionId);
   switch (action) {
-    case Action::StartStop:
-      emit startStopPressed();
-      break;
-    case Action::CapturePoint:
-      emit capturePointPressed();
-      break;
-    case Action::EmergencyStop:
-      emit emergencyStopPressed();
-      break;
-    case Action::MacroRecord:
-      emit macroRecordPressed();
-      break;
-    case Action::MacroPlayback:
-      emit macroPlaybackPressed();
-      break;
+  case Action::FlowPause:
+    emit flowPausePressed();
+    break;
+  case Action::StartStop:
+    emit startStopPressed();
+    break;
+  case Action::CapturePoint:
+    emit capturePointPressed();
+    break;
+  case Action::EmergencyStop:
+    emit emergencyStopPressed();
+    break;
+  case Action::MacroRecord:
+    emit macroRecordPressed();
+    break;
+  case Action::MacroPlayback:
+    emit macroPlaybackPressed();
+    break;
   }
 }
 

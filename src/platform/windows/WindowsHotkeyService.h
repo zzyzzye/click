@@ -27,18 +27,19 @@ class WindowsHotkeyService final : public HotkeyService,
                          qintptr* result) override;
 
  private:
-  enum class Action {
-    StartStop = 1,
-    CapturePoint = 2,
-    EmergencyStop = 3,
-    MacroRecord = 4,
-    MacroPlayback = 5
-  };
+   enum class Action {
+     StartStop = 1,
+     CapturePoint = 2,
+     EmergencyStop = 3,
+     MacroRecord = 4,
+     MacroPlayback = 5,
+     FlowPause = 6
+   };
 
-  bool registerOne(const QString& sequenceText, Action action);
-  void dispatch(Action action);
+   bool registerOne(const QString& sequenceText, Action action);
+   void dispatch(Action action);
 
-  std::unique_ptr<WindowsHotkeyApi> api_;
-  QList<int> activeIds_;
-  QHash<int, Action> activeActions_;
+   std::unique_ptr<WindowsHotkeyApi> api_;
+   QList<int> activeIds_;
+   QHash<int, Action> activeActions_;
 };

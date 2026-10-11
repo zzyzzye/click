@@ -46,6 +46,21 @@ std::optional<quint32> virtualKeyForText(const QString& text) {
     }
   }
   if (key.compare("Space", Qt::CaseInsensitive) == 0) return 0x20;
+  if (key.compare("Tab", Qt::CaseInsensitive) == 0)
+    return 0x09;
+  if (key.compare("Backspace", Qt::CaseInsensitive) == 0)
+    return 0x08;
+  if (key.compare("Del", Qt::CaseInsensitive) == 0 ||
+      key.compare("Delete", Qt::CaseInsensitive) == 0)
+    return 0x2e;
+  if (key.compare("Left", Qt::CaseInsensitive) == 0)
+    return 0x25;
+  if (key.compare("Up", Qt::CaseInsensitive) == 0)
+    return 0x26;
+  if (key.compare("Right", Qt::CaseInsensitive) == 0)
+    return 0x27;
+  if (key.compare("Down", Qt::CaseInsensitive) == 0)
+    return 0x28;
   if (key.compare("Return", Qt::CaseInsensitive) == 0 ||
       key.compare("Enter", Qt::CaseInsensitive) == 0) return 0x0d;
   if (key.compare("Esc", Qt::CaseInsensitive) == 0 ||
@@ -93,6 +108,20 @@ std::optional<ReservedChord> parseChord(const QString& text) {
 }
 
 }  // namespace
+
+bool MacroCompressor::containsReservedKey(const QVector<MacroEvent>& events,
+                                          const QStringList& reservedHotkeys) {
+  QSet<quint32> keys;
+  for (const auto& binding : reservedHotkeys) {
+    const auto chord = parseChord(binding);
+    if (chord)
+      keys.insert(chord->mainKey);
+  }
+  // 与连点和手工步骤一致，保守地禁止控制热键的主键，避免回放触发自身控制。
+  return std::any_of(events.cbegin(), events.cend(), [&](const MacroEvent& e) {
+    return e.type == MacroEventType::KeyDown && keys.contains(e.virtualKey);
+  });
+}
 
 QVector<MacroEvent> MacroCompressor::compress(const QVector<MacroEvent>& events) {
   QVector<MacroEvent> sampled;

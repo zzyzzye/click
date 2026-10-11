@@ -16,11 +16,12 @@ class HotkeyService : public QObject {
   virtual QString backendName() const = 0;
 
  signals:
-  void startStopPressed();
-  void capturePointPressed();
-  void emergencyStopPressed();
-  void macroRecordPressed();
-  void macroPlaybackPressed();
-  void registrationFailed(const QString& message);
+   void flowPausePressed();
+   void startStopPressed();
+   void capturePointPressed();
+   void emergencyStopPressed();
+   void macroRecordPressed();
+   void macroPlaybackPressed();
+   void registrationFailed(const QString& message);
 };
 

@@ -149,6 +149,22 @@ void WindowsMacroPlayer::cancel() {
   recordedClientSize_ = {};
 }
 
+bool WindowsMacroPlayer::revalidate(QString* error) {
+  if (!prepared_) {
+    if (error)
+      *error = "录制回放尚未准备完成。";
+    return false;
+  }
+  if (targetMode_ == MacroTargetMode::Window &&
+      (!windowService_->isAlive(target_) || !windowService_->isForeground(target_) ||
+       !WindowService::sizeMatches(recordedClientSize_, windowService_->clientSize(target_)))) {
+    if (error)
+      *error = "目标窗口已关闭、失焦或改变尺寸，请恢复窗口后重新运行。";
+    return false;
+  }
+  return true;
+}
+
 bool WindowsMacroPlayer::send(const WindowsInjectedInput& input, QString* error) {
   quint32 errorCode = 0;
   if (inputApi_ && inputApi_->send(input, &errorCode)) return true;

@@ -45,16 +45,16 @@ class MacroRecordingPage final : public QWidget {
   MacroRecordingOptions recordingOptions() const;
 
  signals:
-  void recordRequested(const MacroRecordingOptions& options);
-  void stopRequested();
-  void playRequested(const QString& macroId,
-                     const MacroPlaybackSettings& settings);
-  void deleteRequested(const QString& macroId);
-  void renameRequested(const QString& macroId);
-  void saveDraftRequested();
-  void trialRequested(const QString& macroId);
-  void refreshWindowsRequested();
-  void windowPointSelected(const QPoint& globalPoint);
+   void editStepsRequested();
+   void recordRequested(const MacroRecordingOptions& options);
+   void stopRequested();
+   void playRequested(const QString& macroId, const MacroPlaybackSettings& settings);
+   void deleteRequested(const QString& macroId);
+   void renameRequested(const QString& macroId);
+   void saveDraftRequested();
+   void trialRequested(const QString& macroId);
+   void refreshWindowsRequested();
+   void windowPointSelected(const QPoint& globalPoint);
 
  private:
   void updateTargetControls();

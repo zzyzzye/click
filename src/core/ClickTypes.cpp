@@ -51,6 +51,7 @@ QVariantMap toVariantMap(const ClickProfile& profile) {
   data.insert("hotkeyEmergencyStop", profile.hotkeys.emergencyStop);
   data.insert("hotkeyMacroRecord", profile.hotkeys.macroRecord);
   data.insert("hotkeyMacroPlayback", profile.hotkeys.macroPlayback);
+  data.insert("hotkeyFlowPause", profile.hotkeys.flowPause);
   return data;
 }
 
@@ -84,6 +85,7 @@ ClickProfile fromVariantMap(const QVariantMap& data) {
       readHotkey("hotkeyMacroRecord", profile.hotkeys.macroRecord);
   profile.hotkeys.macroPlayback =
       readHotkey("hotkeyMacroPlayback", profile.hotkeys.macroPlayback);
+  profile.hotkeys.flowPause = readHotkey("hotkeyFlowPause", profile.hotkeys.flowPause);
   return profile;
 }
 

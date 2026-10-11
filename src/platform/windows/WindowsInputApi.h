@@ -9,6 +9,9 @@
 
 class WindowsInputApi {
  public:
+   virtual bool textInput(const QString&) {
+     return false;
+   }
   virtual ~WindowsInputApi() = default;
 
   virtual std::optional<QPoint> cursorPosition() const = 0;

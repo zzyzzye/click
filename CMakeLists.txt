@@ -37,6 +37,9 @@ configure_file(
 )
 
 set(CORE_SOURCES
+  src/core/FlowDocument.cpp
+  src/core/FlowRepository.cpp
+  src/core/FlowPlayer.cpp
   src/core/AutomationCoordinator.cpp
   src/core/ClickController.cpp
   src/core/ClickTypes.cpp
@@ -48,6 +51,9 @@ set(CORE_SOURCES
 )
 
 set(CORE_HEADERS
+  src/core/FlowDocument.h
+  src/core/FlowRepository.h
+  src/core/FlowPlayer.h
   src/core/AutomationCoordinator.h
   src/core/ClickBackend.h
   src/core/ClickController.h
@@ -71,6 +77,7 @@ target_include_directories(ClickFlowCore PUBLIC src)
 target_link_libraries(ClickFlowCore PUBLIC Qt6::Core)
 
 set(APP_CONTROLLER_SOURCES
+  src/app/controllers/FlowWorkflowController.cpp
   src/app/controllers/ClickWorkflowController.cpp
   src/app/controllers/HotkeyController.cpp
   src/app/controllers/MacroWorkflowController.cpp
@@ -81,6 +88,7 @@ set(APP_CONTROLLER_SOURCES
 )
 
 set(APP_CONTROLLER_HEADERS
+  src/app/controllers/FlowWorkflowController.h
   src/app/controllers/ClickWorkflowController.h
   src/app/controllers/HotkeyController.h
   src/app/controllers/MacroWorkflowController.h
@@ -155,7 +163,7 @@ elseif(WIN32)
     src/platform/windows/WindowsWindowStyle.h
   )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  find_package(X11 REQUIRED COMPONENTS Xtst)
+  find_package(X11 REQUIRED COMPONENTS Xtst Xrandr)
   list(APPEND PLATFORM_SOURCES src/platform/linux/LinuxServices.cpp)
 else()
   message(FATAL_ERROR "ClickFlow 仅支持 macOS、Windows 和 Linux。")
@@ -189,10 +197,19 @@ if(APPLE)
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}")
 elseif(WIN32)
   set_target_properties(ClickFlow PROPERTIES WIN32_EXECUTABLE TRUE)
+  add_executable(ClickFlowUpdateHelper WIN32 src/platform/windows/WindowsUpdateHelper.cpp)
+  set_target_properties(ClickFlowUpdateHelper PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+  target_link_libraries(ClickFlowUpdateHelper PRIVATE shell32 user32)
+  if(MSVC)
+    target_compile_options(ClickFlowUpdateHelper PRIVATE /utf-8)
+  endif()
+  # 更新助手静态链接运行库，复制到临时目录后不依赖安装目录的 DLL。
+  set_property(TARGET ClickFlowUpdateHelper PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  add_dependencies(ClickFlow ClickFlowUpdateHelper)
   target_link_libraries(ClickFlow PRIVATE user32 dwmapi)
   target_link_options(ClickFlow PRIVATE /MANIFEST:NO)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  target_link_libraries(ClickFlow PRIVATE X11::X11 X11::Xtst)
+  target_link_libraries(ClickFlow PRIVATE X11::X11 X11::Xtst X11::Xrandr)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -219,7 +236,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     tests/LinuxServicesTests.cpp src/platform/linux/LinuxServices.cpp)
   target_include_directories(ClickFlowLinuxServicesTests PRIVATE src)
   target_link_libraries(ClickFlowLinuxServicesTests PRIVATE
-    ClickFlowCore Qt6::Test Qt6::Widgets X11::X11 X11::Xtst)
+    ClickFlowCore Qt6::Test Qt6::Widgets X11::X11 X11::Xtst X11::Xrandr)
   add_test(NAME LinuxServices COMMAND ClickFlowLinuxServicesTests)
   set_tests_properties(LinuxServices PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=xcb")
 endif()
@@ -356,6 +373,8 @@ if(WIN32)
 endif()
 
 set(SHELL_PAGE_SOURCES
+  src/app/pages/FlowEditorPage.cpp
+  src/app/pages/FlowEditorPage.h
   src/app/pages/ClickSettingsPage.cpp
   src/app/pages/ClickSettingsPage.h
   src/app/pages/HotkeySettingsPage.cpp
@@ -367,6 +386,17 @@ set(SHELL_PAGE_SOURCES
 )
 
 target_sources(ClickFlow PRIVATE ${SHELL_WIDGET_SOURCES} ${SHELL_PAGE_SOURCES})
+
+add_executable(ClickFlowFlowTests tests/FlowTests.cpp
+  src/app/pages/FlowEditorPage.cpp src/app/pages/FlowEditorPage.h
+  src/app/controllers/FlowWorkflowController.cpp src/app/controllers/FlowWorkflowController.h)
+target_include_directories(ClickFlowFlowTests PRIVATE src)
+target_link_libraries(ClickFlowFlowTests PRIVATE ClickFlowCore Qt6::Widgets Qt6::Test)
+add_test(NAME Flows COMMAND ClickFlowFlowTests)
+set_tests_properties(Flows PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+if(WIN32)
+  set_tests_properties(Flows PROPERTIES ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+endif()
 
 add_executable(ClickFlowPageTests
   tests/ClickFlowPageTests.cpp
